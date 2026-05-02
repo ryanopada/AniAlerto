@@ -84,11 +84,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <Button type="submit" className="w-full bg-[#8acb88] hover:bg-[#648381]">
                 Login
               </Button>
-
-              <div className="text-center text-sm text-gray-500 mt-4">
-                <p>Demo credentials:</p>
-                <p className="font-mono">Username: admin | Password: admin</p>
-              </div>
             </form>
           </CardContent>
         </Card>
