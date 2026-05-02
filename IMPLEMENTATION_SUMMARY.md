@@ -107,14 +107,14 @@ Created a TypeScript API service with methods for:
 
 ```bash
 # Create database
-createdb anialerto_db
+createdb anialerto
 
 # Run schema
 cd database
-psql -d anialerto_db -f schema.sql
+psql -d anialerto -f schema.sql
 
 # Load sample data (optional)
-psql -d anialerto_db -f seed_data.sql
+psql -d anialerto -f seed_data.sql
 ```
 
 ### Step 2: Setup Backend

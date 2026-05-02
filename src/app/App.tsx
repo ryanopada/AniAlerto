@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { PublicLayout } from "./components/PublicLayout";
@@ -15,8 +15,25 @@ import { MessageConfiguration } from "./components/MessageConfiguration";
 import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
 
+// Step 4: Define the data structure for your MySQL alerts
+interface Alert {
+  alert_id: number;
+  alert_level: string;
+  alert_message: string;
+  created_at: string;
+}
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  // Automatically fetch alerts from the PHP backend when the app loads
+  useEffect(() => {
+    fetch('http://localhost/anialerto-backend/src/get_alerts.php')
+      .then((response) => response.json())
+      .then((data) => setAlerts(data))
+      .catch((error) => console.error('Backend connection error:', error));
+  }, []);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -50,7 +67,7 @@ export default function App() {
           />
         </Route>
 
-        {/* Admin Routes */}
+        {/* Admin Routes - Data is passed to Dashboard and Monitoring */}
         <Route
           path="admin"
           element={
@@ -61,11 +78,12 @@ export default function App() {
             )
           }
         >
-          <Route path="dashboard" element={<Dashboard />} />
+          {/* We pass the 'alerts' data as props to the Dashboard */}
+          <Route path="dashboard" element={<Dashboard alerts={alerts} />} />
           <Route path="batches" element={<BatchManagement />} />
           <Route path="workers" element={<WorkerManagement />} />
           <Route path="messages" element={<MessageConfiguration />} />
-          <Route path="monitoring" element={<SMSMonitoring />} />
+          <Route path="monitoring" element={<SMSMonitoring alerts={alerts} />} />
           <Route path="reports" element={<Reports />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

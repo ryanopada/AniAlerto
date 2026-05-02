@@ -1,7 +1,7 @@
 
   # ANIALERTO
 
-  This is a code bundle for ANIALERTO. The original project is available at https://www.figma.com/design/FnXANqJ0ObwW6seDJ7zsiu/ANIALERTO.
+  This is a code bundle for ANIALERTO. 
 
   ## Running the code
 

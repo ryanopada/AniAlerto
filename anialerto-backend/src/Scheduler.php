@@ -1,107 +1,97 @@
 <?php
-final class Scheduler
-{
-    public function run(): array
-    {
-        $pdo = Database::getConnection();
-        $today = date('Y-m-d');
+require_once 'Database.php';
 
-        $batches = $pdo->query("SELECT * FROM farm_batches WHERE status = 'Active'")->fetchAll();
-        $createdTasks = 0;
-        $queuedMessages = 0;
+// 1. Initialize Database
+$database = new Database();
+$db = $database->getConnection();
 
-        foreach ($batches as $batch) {
-            $cropDay = (int) floor((strtotime($today) - strtotime($batch['planting_date'])) / 86400);
-            if ($cropDay < 0) {
-                continue;
-            }
+try {
+    // 2. Fetch all ACTIVE farm batches
+    // We need the planting_date to calculate how many days have passed
+    $batchQuery = "SELECT id, name, planting_date FROM farm_batches WHERE status = 'Active'";
+    $stmt = $db->prepare($batchQuery);
+    $stmt->execute();
+    $activeBatches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $templates = $this->getDueTemplates($pdo, $cropDay);
-            foreach ($templates as $template) {
-                $taskId = $this->createTaskIfMissing($pdo, (int)$batch['id'], (int)$template['id'], $today);
-                if ($taskId === null) {
-                    continue;
-                }
-                $createdTasks++;
+    foreach ($activeBatches as $batch) {
+        $batchId = $batch['id'];
+        $batchName = $batch['name'];
+        $plantingDate = new DateTime($batch['planting_date']);
+        $today = new DateTime();
+        
+        // Calculate the "Crop Day" (Days After Planting)
+        $interval = $today->diff($plantingDate);
+        $daysAfterPlanting = $interval->days;
 
-                $workers = $this->getBatchWorkers($pdo, (int)$batch['id']);
-                foreach ($workers as $worker) {
-                    $message = $this->renderTemplate($template['message'], $batch, $worker, $cropDay);
-                    $this->queueSms($pdo, $taskId, (int)$worker['id'], $worker['phone'], $message);
-                    $queuedMessages++;
-                }
-            }
-        }
+        // 3. Find matching message templates for this specific day
+        $templateQuery = "SELECT id, message FROM message_templates 
+                          WHERE trigger_type = 'days_after_planting' 
+                          AND days_after_planting = :days 
+                          AND active = 1";
+        $tStmt = $db->prepare($templateQuery);
+        $tStmt->bindParam(':days', $daysAfterPlanting);
+        $tStmt->execute();
+        $templates = $tStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return [
-            'date' => $today,
-            'active_batches_checked' => count($batches),
-            'tasks_created' => $createdTasks,
-            'messages_queued' => $queuedMessages,
-        ];
-    }
+        foreach ($templates as $template) {
+            $templateId = $template['id'];
+            $rawMessage = $template['message'];
 
-    private function getDueTemplates(PDO $pdo, int $cropDay): array
-    {
-        $stmt = $pdo->prepare(
-            "SELECT * FROM message_templates
-             WHERE active = 1
-             AND trigger_type = 'days_after_planting'
-             AND days_after_planting = ?"
-        );
-        $stmt->execute([$cropDay]);
-        return $stmt->fetchAll();
-    }
+            // 4. Find all workers assigned to this batch
+            $workerQuery = "SELECT w.id, w.phone, w.name FROM workers w
+                            JOIN batch_workers bw ON w.id = bw.worker_id
+                            WHERE bw.batch_id = :batch_id AND w.status = 'Active'";
+            $wStmt = $db->prepare($workerQuery);
+            $wStmt->bindParam(':batch_id', $batchId);
+            $wStmt->execute();
+            $workers = $wStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    private function createTaskIfMissing(PDO $pdo, int $batchId, int $templateId, string $dueDate): ?int
-    {
-        $check = $pdo->prepare(
-            "SELECT id FROM scheduled_tasks WHERE batch_id = ? AND template_id = ? AND due_date = ? LIMIT 1"
-        );
-        $check->execute([$batchId, $templateId, $dueDate]);
-        $existing = $check->fetch();
-        if ($existing) {
-            return null;
-        }
+            foreach ($workers as $worker) {
+                $workerId = $worker['id'];
+                $phoneNumber = $worker['phone'];
+                
+                // Customize the message content
+                $finalMessage = str_replace(
+                    ['{batch_name}', '{crop_day}', '{worker_name}'], 
+                    [$batchName, $daysAfterPlanting, $worker['name']], 
+                    $rawMessage
+                );
 
-        $insert = $pdo->prepare(
-            "INSERT INTO scheduled_tasks (batch_id, template_id, due_date, status, created_at)
-             VALUES (?, ?, ?, 'Pending', NOW())"
-        );
-        $insert->execute([$batchId, $templateId, $dueDate]);
-        return (int)$pdo->lastInsertId();
-    }
+                // 5. Create a Scheduled Task record
+// We remove IGNORE to see the actual error if it fails
+$taskSql = "INSERT INTO scheduled_tasks (batch_id, template_id, due_date, status, created_at) 
+            VALUES (:bid, :tid, CURRENT_DATE, 'Pending', NOW())";
+$taskStmt = $db->prepare($taskSql);
 
-    private function getBatchWorkers(PDO $pdo, int $batchId): array
-    {
-        $stmt = $pdo->prepare(
-            "SELECT w.* FROM workers w
-             INNER JOIN batch_workers bw ON bw.worker_id = w.id
-             WHERE bw.batch_id = ? AND w.status = 'Active'"
-        );
-        $stmt->execute([$batchId]);
-        return $stmt->fetchAll();
-    }
-
-    private function renderTemplate(array|string $message, array $batch, array $worker, int $cropDay): string
-    {
-        $message = (string)$message;
-        $replacements = [
-            '{worker_name}' => $worker['name'],
-            '{batch_name}' => $batch['name'],
-            '{location}' => $batch['location'],
-            '{crop_day}' => (string)$cropDay,
-            '{planting_date}' => $batch['planting_date'],
-        ];
-        return strtr($message, $replacements);
-    }
-
-    private function queueSms(PDO $pdo, int $taskId, int $workerId, string $phone, string $message): void
-    {
-        $stmt = $pdo->prepare(
-            "INSERT INTO sms_queue (task_id, worker_id, phone, message, status, attempts, created_at)
-             VALUES (?, ?, ?, ?, 'Queued', 0, NOW())"
-        );
-        $stmt->execute([$taskId, $workerId, $phone, $message]);
-    }
+try {
+    $taskStmt->execute(['bid' => $batchId, 'tid' => $templateId]);
+    $taskId = $db->lastInsertId();
+    echo "Successfully created task ID: $taskId <br>";
+} catch (PDOException $e) {
+    // This will tell us if a column name is wrong or a constraint is failing
+    echo "Database Error creating task: " . $e->getMessage() . "<br>";
+    $taskId = null;
 }
+                // If the task was already created today (IGNORE handled it), 
+                // we skip adding it to the SMS queue to prevent duplicates.
+                if ($taskId) {
+                    // 6. Push to SMS Queue
+                    $queueSql = "INSERT INTO sms_queue (task_id, worker_id, phone, message, status, created_at) 
+                                 VALUES (:tid, :wid, :phone, :msg, 'Queued', NOW())";
+                    $qStmt = $db->prepare($queueSql);
+                    $qStmt->execute([
+                        'tid' => $taskId,
+                        'wid' => $workerId,
+                        'phone' => $phoneNumber,
+                        'msg' => $finalMessage
+                    ]);
+                }
+            }
+        }
+    }
+    echo "Scheduler ran successfully. Check your sms_queue table.";
+
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+?>

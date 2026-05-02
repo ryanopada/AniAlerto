@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "db:setup": "psql -d anialerto_db -f ../database/schema.sql",
-    "db:seed": "psql -d anialerto_db -f ../database/seed_data.sql",
+    "db:setup": "psql -d anialerto -f ../database/schema.sql",
+    "db:seed": "psql -d anialerto -f ../database/seed_data.sql",
     "db:reset": "npm run db:setup && npm run db:seed"
   },
   "keywords": [
