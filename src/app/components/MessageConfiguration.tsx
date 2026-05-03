@@ -41,7 +41,6 @@ export function MessageConfiguration() {
     expected_responses: [] as string[],
   });
 
-  // --- DATABASE SYNC LOGIC ---
   const fetchTemplates = async () => {
     try {
       const response = await fetch(API_URL);
@@ -132,7 +131,7 @@ export function MessageConfiguration() {
       ...formData,
       id: editingTemplate?.id,
       active: formData.active ? 1 : 0,
-      trigger_type: "days_after_planting" // Default as per image_a563f6.png
+      trigger_type: "days_after_planting"
     };
 
     await fetch(API_URL, {

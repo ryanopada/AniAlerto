@@ -63,7 +63,6 @@ export function BatchManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Load batches on mount
   useEffect(() => {
     loadBatches();
   }, []);
@@ -84,7 +83,6 @@ export function BatchManagement() {
   const handleCreateBatch = async (formData) => {
     try {
       const response = await api.createBatch(formData);
-      // Reload batches after creating
       await loadBatches();
       return response.data;
     } catch (err) {
@@ -96,7 +94,6 @@ export function BatchManagement() {
   const handleUpdateBatch = async (id, formData) => {
     try {
       await api.updateBatch(id, formData);
-      // Reload batches after updating
       await loadBatches();
     } catch (err) {
       console.error('Error updating batch:', err);
@@ -108,7 +105,6 @@ export function BatchManagement() {
     if (confirm('Are you sure?')) {
       try {
         await api.deleteBatch(id);
-        // Reload batches after deleting
         await loadBatches();
       } catch (err) {
         console.error('Error deleting batch:', err);
@@ -117,7 +113,6 @@ export function BatchManagement() {
     }
   };
 
-  // Rest of component...
 }
 ```
 
@@ -142,7 +137,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     
     console.log('Batch created:', response.data);
     setIsDialogOpen(false);
-    // Reload data
   } catch (error) {
     console.error('Failed to create batch:', error);
     alert('Error creating batch');
@@ -248,7 +242,6 @@ All API calls should include proper error handling:
 ```typescript
 try {
   const response = await api.createBatch(batchData);
-  // Success
 } catch (error) {
   if (error.message.includes('duplicate')) {
     alert('A batch with this ID already exists');
@@ -284,7 +277,6 @@ useEffect(() => {
   loadData();
 }, []);
 
-// In render
 if (loading) {
   return <div>Loading...</div>;
 }

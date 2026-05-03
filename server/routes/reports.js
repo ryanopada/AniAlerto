@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db/connection');
 
-// Get message report
 router.get('/messages', async (req, res) => {
   const { startDate, endDate } = req.query;
 
@@ -31,7 +30,6 @@ router.get('/messages', async (req, res) => {
   }
 });
 
-// Get task completion report
 router.get('/tasks', async (req, res) => {
   const { startDate, endDate } = req.query;
 
@@ -62,7 +60,6 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
-// Get worker performance report
 router.get('/workers', async (req, res) => {
   const { startDate, endDate } = req.query;
 
@@ -95,7 +92,6 @@ router.get('/workers', async (req, res) => {
   }
 });
 
-// Get batch activity report
 router.get('/batches', async (req, res) => {
   const { startDate, endDate } = req.query;
 
@@ -129,7 +125,6 @@ router.get('/batches', async (req, res) => {
   }
 });
 
-// Get dashboard statistics
 router.get('/stats', async (req, res) => {
   try {
     const [batchesResult, workersResult, messagesResult, tasksResult] = await Promise.all([

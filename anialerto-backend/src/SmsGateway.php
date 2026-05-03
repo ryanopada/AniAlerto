@@ -10,7 +10,6 @@ final class SmsGateway
             return $this->sendUsingGammuCli($phone, $message);
         }
 
-        // Development mode: simulate success without using the modem.
         error_log('[AniAlerto SMS LOG] To: ' . $phone . ' Message: ' . $message);
         return [
             'success' => true,
@@ -21,8 +20,7 @@ final class SmsGateway
 
     private function sendUsingGammuCli(string $phone, string $message): array
     {
-        // Requires Gammu installed and configured on the server.
-        // Test first in terminal: gammu sendsms TEXT +639XXXXXXXXX -text "Test"
+  
         $cmd = sprintf(
             'gammu sendsms TEXT %s -text %s 2>&1',
             escapeshellarg($phone),

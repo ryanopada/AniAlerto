@@ -150,7 +150,6 @@ To use the API in your components, import the service:
 ```typescript
 import { api } from '../services/api';
 
-// Example: Create batch
 const handleCreateBatch = async (formData) => {
   try {
     const response = await api.createBatch(formData);
@@ -231,7 +230,7 @@ const loadBatches = async () => {
 
 const handleCreate = async (batch) => {
   await api.createBatch(batch);
-  await loadBatches(); // Reload from database
+  await loadBatches(); 
 };
 ```
 

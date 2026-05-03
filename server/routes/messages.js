@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db/connection');
 
-// Get all message templates
 router.get('/templates', async (req, res) => {
   try {
     const result = await query(`
@@ -28,7 +27,6 @@ router.get('/templates', async (req, res) => {
   }
 });
 
-// Get single template
 router.get('/templates/:id', async (req, res) => {
   try {
     const result = await query(
@@ -59,12 +57,10 @@ router.get('/templates/:id', async (req, res) => {
   }
 });
 
-// Create new template
 router.post('/templates', async (req, res) => {
   const { name, category, message, daysAfterPlanting, active, expectedResponses, createdBy } = req.body;
 
   try {
-    // Generate template ID
     const countResult = await query('SELECT COUNT(*) as count FROM message_templates');
     const templateNumber = String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0');
     const templateId = `MSG${templateNumber}`;
@@ -96,7 +92,6 @@ router.post('/templates', async (req, res) => {
   }
 });
 
-// Update template
 router.put('/templates/:id', async (req, res) => {
   const { name, category, message, daysAfterPlanting, active, expectedResponses } = req.body;
 
@@ -131,7 +126,6 @@ router.put('/templates/:id', async (req, res) => {
   }
 });
 
-// Delete template
 router.delete('/templates/:id', async (req, res) => {
   try {
     const result = await query(
@@ -150,7 +144,6 @@ router.delete('/templates/:id', async (req, res) => {
   }
 });
 
-// Get all SMS messages
 router.get('/sms', async (req, res) => {
   try {
     const { status, startDate, endDate } = req.query;

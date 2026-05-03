@@ -13,7 +13,6 @@ if ($conn->connect_error) {
     die(json_encode(["error" => "Connection failed: " . $conn->connect_error]));
 }
 
-// Select the exact columns from your sms_logs table
 $sql = "SELECT id, worker_id, phone, message, direction, status, response_text, sent_at, received_at 
         FROM sms_logs 
         ORDER BY created_at DESC";

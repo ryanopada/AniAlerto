@@ -6,7 +6,6 @@ require_once 'Database.php';
 $database = new Database();
 $db = $database->getConnection();
 
-// Fetching alerts from the shared MySQL table
 $query = "SELECT * FROM alerts ORDER BY created_at DESC";
 $stmt = $db->prepare($query);
 $stmt->execute();

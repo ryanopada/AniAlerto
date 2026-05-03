@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db/connection');
 
-// Get all workers
 router.get('/', async (req, res) => {
   try {
     const result = await query(`
@@ -43,7 +42,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single worker
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(`
@@ -89,12 +87,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new worker
 router.post('/', async (req, res) => {
   const { name, phone, role, status, dateHired, address, emergencyContact, emergencyPhone, notes } = req.body;
 
   try {
-    // Generate worker ID
     const countResult = await query('SELECT COUNT(*) as count FROM workers');
     const workerNumber = String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0');
     const workerId = `W${workerNumber}`;
@@ -130,7 +126,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update worker
 router.put('/:id', async (req, res) => {
   const { name, phone, role, status, dateHired, address, emergencyContact, emergencyPhone, notes } = req.body;
 
@@ -168,7 +163,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete worker
 router.delete('/:id', async (req, res) => {
   try {
     const result = await query(

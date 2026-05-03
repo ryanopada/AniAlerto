@@ -19,7 +19,6 @@ interface Worker {
 }
 
 export function WorkerManagement() {
-  // --- STATE ---
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
@@ -35,11 +34,8 @@ export function WorkerManagement() {
     status: "Active" as Worker["status"],
   });
 
-  const API_URL = "http://localhost/anialerto-backend/src/workers.php"; // Update this to your actual PHP path
+  const API_URL = "http://localhost/anialerto-backend/src/workers.php"; 
 
-  // --- API CALLS ---
-
-  // Fetch Workers (Read)
   const fetchWorkers = async () => {
     setLoading(true);
     try {
@@ -58,7 +54,6 @@ export function WorkerManagement() {
     fetchWorkers();
   }, []);
 
-  // Create or Update
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const method = editingWorker ? "PUT" : "POST";
@@ -72,14 +67,13 @@ export function WorkerManagement() {
 
       if (response.ok) {
         setIsDialogOpen(false);
-        fetchWorkers(); // Refresh list
+        fetchWorkers(); 
       }
     } catch (error) {
       console.error("Error saving worker:", error);
     }
   };
 
-  // Delete
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to remove this worker?")) return;
     
@@ -91,7 +85,6 @@ export function WorkerManagement() {
     }
   };
 
-  // --- LOGIC ---
   const filteredWorkers = useMemo(() => {
     return workers.filter((worker) => {
       const matchesSearch = worker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

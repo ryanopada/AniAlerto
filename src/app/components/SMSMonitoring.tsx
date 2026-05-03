@@ -38,7 +38,6 @@ export function SMSMonitoring() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [loading, setLoading] = useState(false);
   
-  // States for Command Management (Manual local state for now)
   const [commandResponses, setCommandResponses] = useState<CommandResponse[]>([
     { id: "CMD001", command: "DONE", description: "Task completed", color: "green", action: "Complete task" },
     { id: "CMD002", command: "DELAY", description: "Task delayed", color: "yellow", action: "Flag follow-up" },
@@ -62,7 +61,7 @@ export function SMSMonitoring() {
 
   useEffect(() => {
     fetchLogs();
-    const interval = setInterval(fetchLogs, 30000); // Auto-refresh every 30s
+    const interval = setInterval(fetchLogs, 30000);
     return () => clearInterval(interval);
   }, []);
 

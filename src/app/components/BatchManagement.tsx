@@ -24,7 +24,6 @@ export function BatchManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   
-  // Form State
   const [formData, setFormData] = useState({
     name: "",
     location: "",
@@ -47,13 +46,13 @@ export function BatchManagement() {
       if (Array.isArray(data)) {
         const mappedData = data.map((b: any) => ({
           id: b.id,
-          name: b.name,             // Matches 'name' column
-          location: b.location,     // Matches 'location' column
-          plantingDate: b.planting_date, // Matches 'planting_date' column
-          area: b.area,             // Matches 'area' column
-          variety: b.variety,       // Matches 'variety' column
-          status: b.status,         // Matches 'status' column
-          notes: b.notes            // Matches 'notes' column
+          name: b.name,            
+          location: b.location,     
+          plantingDate: b.planting_date,
+          area: b.area,        
+          variety: b.variety, 
+          status: b.status,         
+          notes: b.notes            
         }));
         setBatches(mappedData);
       }
@@ -66,11 +65,9 @@ export function BatchManagement() {
     fetchBatches();
   }, []);
 
-  // SUBMIT DATA (Fixed with async)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Ensure payload matches what your batches.php expects
     const payload = {
       ...formData,
       id: editingBatch?.id 
@@ -87,7 +84,7 @@ export function BatchManagement() {
 
       if (response.ok && result.status === "success") {
         setIsDialogOpen(false);
-        fetchBatches(); // Refresh table
+        fetchBatches();
       } else {
         console.error("Server error:", result.message);
       }

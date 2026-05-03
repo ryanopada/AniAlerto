@@ -15,7 +15,6 @@ import { MessageConfiguration } from "./components/MessageConfiguration";
 import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
 
-// Step 4: Define the data structure for your MySQL alerts
 interface Alert {
   alert_id: number;
   alert_level: string;
@@ -27,7 +26,6 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
-  // Automatically fetch alerts from the PHP backend when the app loads
   useEffect(() => {
     fetch('http://localhost/anialerto-backend/src/get_alerts.php')
       .then((response) => response.json())

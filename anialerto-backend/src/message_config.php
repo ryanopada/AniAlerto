@@ -13,7 +13,6 @@ if ($method == 'GET') {
     $result = $conn->query($sql);
     $templates = [];
     while($row = $result->fetch_assoc()) {
-        // Decode JSON field for React
         $row['expected_responses'] = json_decode($row['expected_responses']);
         $templates[] = $row;
     }
@@ -24,11 +23,9 @@ elseif ($method == 'POST') {
     $responses = json_encode($data['expected_responses']);
     
     if (isset($data['id'])) {
-        // UPDATE existing template
         $stmt = $conn->prepare("UPDATE message_templates SET name=?, category=?, message=?, trigger_type=?, days_after_planting=?, expected_responses=?, active=? WHERE id=?");
         $stmt->bind_param("ssssisii", $data['name'], $data['category'], $data['message'], $data['trigger_type'], $data['days_after_planting'], $responses, $data['active'], $data['id']);
     } else {
-        // INSERT new template
         $stmt = $conn->prepare("INSERT INTO message_templates (name, category, message, trigger_type, days_after_planting, expected_responses, active) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->bind_param("ssssisi", $data['name'], $data['category'], $data['message'], $data['trigger_type'], $data['days_after_planting'], $responses, $data['active']);
     }

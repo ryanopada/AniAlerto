@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { query, transaction } = require('../db/connection');
 
-// Get all batches
 router.get('/', async (req, res) => {
   try {
     const result = await query(`
@@ -44,7 +43,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single batch
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(`
@@ -91,12 +89,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new batch
 router.post('/', async (req, res) => {
   const { name, location, plantingDate, area, variety, status, notes, createdBy } = req.body;
 
   try {
-    // Generate batch ID
     const year = new Date().getFullYear();
     const countResult = await query(
       `SELECT COUNT(*) as count FROM farm_batches WHERE batch_id LIKE $1`,
@@ -105,7 +101,6 @@ router.post('/', async (req, res) => {
     const batchNumber = String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0');
     const batchId = `BR-${year}-${batchNumber}`;
 
-    // Parse area (remove 'ha' if present)
     const areaHectares = parseFloat(area.toString().replace(/[^0-9.]/g, ''));
 
     const result = await query(`
@@ -135,7 +130,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update batch
 router.put('/:id', async (req, res) => {
   const { name, location, plantingDate, area, variety, status, harvestDate, notes } = req.body;
 
@@ -174,7 +168,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete batch
 router.delete('/:id', async (req, res) => {
   try {
     const result = await query(
@@ -193,14 +186,12 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Assign worker to batch
 router.post('/:batchId/workers/:workerId', async (req, res) => {
   const { batchId, workerId } = req.params;
   const { assignedBy } = req.body;
 
   try {
     await transaction(async (client) => {
-      // Get database IDs
       const batchResult = await client.query(
         'SELECT id FROM farm_batches WHERE batch_id = $1',
         [batchId]
@@ -228,7 +219,6 @@ router.post('/:batchId/workers/:workerId', async (req, res) => {
   }
 });
 
-// Remove worker from batch
 router.delete('/:batchId/workers/:workerId', async (req, res) => {
   const { batchId, workerId } = req.params;
 

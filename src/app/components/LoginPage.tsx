@@ -20,9 +20,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     e.preventDefault();
     setError("");
 
-    // Mock authentication - accept any non-empty credentials
     if (username && password) {
-      // In real app, this would validate against backend
       if (username === "admin" && password === "admin") {
         onLogin();
         navigate("/admin/dashboard");

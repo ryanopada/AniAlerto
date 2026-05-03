@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db/connection');
 
-// Get all command responses
 router.get('/', async (req, res) => {
   try {
     const result = await query(`
@@ -27,7 +26,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single command response
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(
@@ -56,12 +54,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new command response
 router.post('/', async (req, res) => {
   const { command, description, color, action } = req.body;
 
   try {
-    // Generate command ID
     const countResult = await query('SELECT COUNT(*) as count FROM command_responses');
     const commandNumber = String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0');
     const commandId = `CMD${commandNumber}`;
@@ -89,7 +85,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update command response
 router.put('/:id', async (req, res) => {
   const { command, description, color, action } = req.body;
 
@@ -121,7 +116,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete command response
 router.delete('/:id', async (req, res) => {
   try {
     const result = await query(

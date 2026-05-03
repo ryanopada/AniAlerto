@@ -1,10 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/Database.php';
 
-// Starter processor for two-way replies.
-// Insert incoming modem messages into inbound_messages, then run this script.
-// If using Gammu SMSD, map messages from the Gammu inbox table into inbound_messages first.
-
 $pdo = Database::getConnection();
 $stmt = $pdo->query("SELECT * FROM inbound_messages WHERE processed_at IS NULL ORDER BY received_at ASC LIMIT 50");
 $messages = $stmt->fetchAll();

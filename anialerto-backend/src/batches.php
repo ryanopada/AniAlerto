@@ -19,7 +19,6 @@ if ($conn->connect_error) {
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method == 'GET') {
-    // Matches your columns: name, location, planting_date, area, variety, status, notes
     $sql = "SELECT id, name, location, planting_date, area, variety, status, notes FROM farm_batches ORDER BY id DESC";
     $result = $conn->query($sql);
 

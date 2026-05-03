@@ -4,12 +4,10 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Handle pre-flight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-// Database connection details
 $host = "localhost";
 $db_name = "anialerto";
 $username = "root";
@@ -24,7 +22,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch($method) {
     case 'GET':
-    // We select only the columns that actually exist in your screenshot
     $sql = "SELECT 
                 id, 
                 name, 
@@ -38,8 +35,6 @@ switch($method) {
     
     if ($result) {
         while($row = $result->fetch_assoc()) {
-            // Manually adding assignedBatch as an empty string 
-            // so React doesn't show 'undefined'
             $row['assignedBatch'] = '-'; 
             $workers[] = $row;
         }
@@ -49,8 +44,6 @@ switch($method) {
 
     case 'POST':
     $data = json_decode(file_get_contents("php://input"), true);
-    
-    // Updated to use the columns shown in your phpMyAdmin screenshot
     $stmt = $conn->prepare("INSERT INTO workers (name, phone, status) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $data['name'], $data['phone'], $data['status']);
     
