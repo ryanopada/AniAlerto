@@ -4,28 +4,34 @@ import { Sprout, Droplet, Leaf, Bug, Calendar } from "lucide-react";
 
 export function CornGuidePage() {
   return (
-    <div>
+    <div className="bg-[#f3faf2]">
       {/* Hero Section */}
       <section
-        className="relative h-[300px] bg-cover bg-center flex items-center"
+        className="relative overflow-hidden h-[360px] bg-cover bg-center flex items-center"
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1638114485636-ecff19ec931d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYXJtZXIlMjB3b3JraW5nJTIwY29ybiUyMGZpZWxkfGVufDF8fHx8MTc3MjcxOTYwN3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral')`,
+          backgroundImage: `linear-gradient(180deg, rgba(31, 58, 29, 0.45), rgba(12, 49, 30, 0.45)), url('https://images.unsplash.com/photo-1638114485636-ecff19ec931d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYXJtZXIlMjB3b3JraW5nJTIwY29ybiUyMGZpZWxkfGVufDF8fHx8MTc3MjcxOTYwN3ww&ixlib=rb-4.1.0&q=80&w=1600&utm_source=figma&utm_medium=referral')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       >
-        <div className="container mx-auto px-4 text-white text-center">
-          <h1 className="text-4xl font-bold mb-4">Corn Farming Guide</h1>
-          <p className="text-xl max-w-2xl mx-auto">
-            Comprehensive information about corn farming best practices
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.18),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_30%)]" />
+        <div className="container mx-auto px-4 text-white text-center relative z-10">
+          <span className="inline-flex items-center justify-center rounded-full bg-white/15 border border-white/20 px-4 py-2 text-sm uppercase tracking-[0.24em] text-white mb-6 shadow-lg shadow-black/10 backdrop-blur-sm">
+            Corn farming essentials
+          </span>
+          <h1 className="text-5xl md:text-6xl font-extrabold mb-4 drop-shadow-[0_20px_35px_rgba(0,0,0,0.35)]">Corn Farming Guide</h1>
+          <p className="text-lg md:text-xl max-w-2xl mx-auto text-white/85 leading-relaxed drop-shadow-[0_10px_20px_rgba(0,0,0,0.25)]">
+            Comprehensive information about corn farming best practices, from soil preparation to harvest
           </p>
         </div>
       </section>
 
       {/* Main Content */}
-      <section className="py-16 bg-white">
+      <section className="py-20 bg-gradient-to-br from-[#f3faf2] via-[#f9fcf7] to-[#eff7eb]">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="preparation" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-8">
+              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-10 bg-[#e8f2e5] shadow-lg rounded-[1rem] p-1">
                 <TabsTrigger value="preparation">Preparation</TabsTrigger>
                 <TabsTrigger value="planting">Planting</TabsTrigger>
                 <TabsTrigger value="fertilization">Fertilization</TabsTrigger>
@@ -35,54 +41,54 @@ export function CornGuidePage() {
               </TabsList>
 
               <TabsContent value="preparation">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sprout className="h-6 w-6 text-[#8acb88]" />
+                <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.75rem] overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
+                    <CardTitle className="flex items-center gap-2 text-[#3d5a36]">
+                      <Sprout className="h-6 w-6 text-[#5d8044]" />
                       Land Preparation
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <h3 className="font-bold mb-2">Soil Testing</h3>
-                      <p className="text-gray-600">
+                  <CardContent className="space-y-5 pt-6">
+                    <div className="rounded-[1rem] bg-[#f8fdf3] p-5 border border-[#e5ede0]">
+                      <h3 className="font-bold mb-2 text-[#2d3a25]">Soil Testing</h3>
+                      <p className="text-[#4f5d46]">
                         Before planting, conduct soil tests to determine pH levels and nutrient
                         content. Ideal pH for corn is between 6.0 and 7.0.
                       </p>
                     </div>
 
-                    <div>
-                      <h3 className="font-bold mb-2">Field Clearing</h3>
-                      <p className="text-gray-600">
+                    <div className="rounded-[1rem] bg-[#f8fdf3] p-5 border border-[#e5ede0]">
+                      <h3 className="font-bold mb-2 text-[#2d3a25]">Field Clearing</h3>
+                      <p className="text-[#4f5d46]">
                         Remove all weeds, rocks, and debris from the field. Clear any previous
                         crop residues to prevent disease carry-over.
                       </p>
                     </div>
 
-                    <div>
-                      <h3 className="font-bold mb-2">Plowing and Harrowing</h3>
-                      <p className="text-gray-600 mb-2">
+                    <div className="rounded-[1rem] bg-[#f8fdf3] p-5 border border-[#e5ede0]">
+                      <h3 className="font-bold mb-2 text-[#2d3a25]">Plowing and Harrowing</h3>
+                      <p className="text-[#4f5d46] mb-2">
                         Plow the field to a depth of 20-25 cm to loosen the soil and improve
                         aeration:
                       </p>
-                      <ul className="list-disc list-inside text-gray-600 space-y-1">
+                      <ul className="list-disc list-inside text-[#556d4a] space-y-1">
                         <li>First plowing: 2-3 weeks before planting</li>
                         <li>Harrowing: 1 week before planting to create a fine seedbed</li>
                         <li>Level the field to ensure proper water distribution</li>
                       </ul>
                     </div>
 
-                    <div>
-                      <h3 className="font-bold mb-2">Organic Matter Addition</h3>
-                      <p className="text-gray-600">
+                    <div className="rounded-[1rem] bg-[#f8fdf3] p-5 border border-[#e5ede0]">
+                      <h3 className="font-bold mb-2 text-[#2d3a25]">Organic Matter Addition</h3>
+                      <p className="text-[#4f5d46]">
                         Incorporate compost or well-rotted manure at 5-10 tons per hectare to
                         improve soil structure and fertility.
                       </p>
                     </div>
 
-                    <div>
-                      <h3 className="font-bold mb-2">Drainage System</h3>
-                      <p className="text-gray-600">
+                    <div className="rounded-[1rem] bg-[#f8fdf3] p-5 border border-[#e5ede0]">
+                      <h3 className="font-bold mb-2 text-[#2d3a25]">Drainage System</h3>
+                      <p className="text-[#4f5d46]">
                         Ensure proper drainage by creating furrows and drainage canals to prevent
                         waterlogging during heavy rains.
                       </p>
@@ -395,14 +401,14 @@ export function CornGuidePage() {
               </TabsContent>
 
               <TabsContent value="harvest">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-6 w-6 text-green-600" />
+                <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.75rem] overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
+                    <CardTitle className="flex items-center gap-2 text-[#3d5a36]">
+                      <Calendar className="h-6 w-6 text-[#5d8044]" />
                       Harvest Timing
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-5 pt-6">
                     <div>
                       <h3 className="font-bold mb-2">Maturity Indicators</h3>
                       <p className="text-gray-600 mb-2">

@@ -1,5 +1,5 @@
 import { Link, Outlet } from "react-router";
-import { Sprout, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 
@@ -13,7 +13,12 @@ export function PublicLayout() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2 group">
-              <Sprout className="h-8 w-8 text-white" />
+              {/* Replaced Sprout icon with your custom SVG logo */}
+              <img 
+                src="/anialerto-logo.svg" 
+                alt="AniAlerto Logo" 
+                className="h-9 w-auto object-contain" 
+              />
               <span className="font-bold text-xl text-white tracking-tight">AniAlerto</span>
             </Link>
 
@@ -28,8 +33,11 @@ export function PublicLayout() {
               <Link to="/corn-guide" className="text-sm font-medium text-white hover:text-[#F1F5F2] transition-colors">
                 Farming Guide
               </Link>
+              <Link to="/farm-tour" className="text-sm font-medium text-white hover:text-[#F1F5F2] transition-colors">
+                The Farm
+              </Link>
               <Link to="/login">
-                <Button size="sm" className="bg-[#556B2F] hover:bg-[#91b554] text-white border-none shadow-sm rounded-md">
+                <Button size="sm" className="bg-[#556B2F] hover:bg-[#91b554] text-white border-none shadow-sm rounded-full">
                   Admin Login
                 </Button>
               </Link>
@@ -89,8 +97,13 @@ export function PublicLayout() {
           <div className="grid md:grid-cols-3 gap-12">
             <div>
               <div className="flex items-center gap-2 mb-6">
-                <Sprout className="h-6 w-6 text-[#97ae5f]" />
-                <span className="font-bold text-xl tracking-tight">AniAlerto</span>
+                {/* Replaced Sprout icon in footer as well */}
+                <img 
+                  src="/anialerto-logo.svg" 
+                  alt="AniAlerto Logo" 
+                  className="h-7 w-auto object-contain" 
+                />
+                <span className="font-bold text-xl tracking-tight text-white">AniAlerto</span>
               </div>
               <p className="text-sm text-[#777] leading-relaxed">
                 Empowering Filipino farmers through automated, rule-based SMS advisory for precision corn management.

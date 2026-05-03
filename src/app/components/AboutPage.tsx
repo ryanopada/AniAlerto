@@ -3,301 +3,92 @@ import { Target, Lightbulb, Users, TrendingUp } from "lucide-react";
 
 export function AboutPage() {
   return (
-    <div>
-      {/* Hero Section */}
-      <section className="bg-[#8acb88] text-white py-16">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold mb-4">About AniAlerto</h1>
-          <p className="text-xl max-w-2xl mx-auto">
-            Revolutionizing corn farm management through SMS-based communication and task automation
+    <div className="bg-[#f3faf0] text-[#243723] min-h-screen">
+      <section className="relative overflow-hidden bg-[#556b2f] text-white py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.18),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_30%)]" />
+        <div className="absolute -left-20 top-16 h-56 w-56 rounded-full bg-white/15 blur-3xl" />
+        <div className="absolute right-12 bottom-10 h-72 w-72 rounded-full bg-[#91b554]/20 blur-3xl" />
+
+        <div className="container mx-auto relative z-10 px-4 text-center">
+          <span className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm tracking-[0.24em] uppercase text-white/80 mb-6 shadow-lg shadow-black/10">
+            Designed for stronger farm coordination
+          </span>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-6 drop-shadow-[0_20px_35px_rgba(0,0,0,0.25)]">
+            About AniAlerto
+          </h1>
+          <p className="mx-auto max-w-3xl text-lg md:text-xl leading-relaxed text-white/85">
+            Revolutionizing corn farm management through SMS-based communication and task automation that helps teams stay aligned and productive.
           </p>
         </div>
       </section>
 
-      {/* Main Content */}
-      <section className="py-16 bg-white">
+      <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold mb-6">Our Mission</h2>
-            <p className="text-gray-600 mb-6">
-              AniAlerto is committed to transforming corn farm management by bridging the
-              communication gap between farm heads and workers. Our SMS-based advisory system
-              ensures that critical farming activities are completed on time, improving overall
-              farm productivity and crop yields.
-            </p>
-            <p className="text-gray-600 mb-8">
-              We understand the challenges faced by farm managers in coordinating multiple tasks
-              across large agricultural operations. AniAlerto provides a simple yet powerful
-              solution that leverages mobile technology to keep everyone informed and accountable.
-            </p>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-12">
-              <Card>
-                <CardHeader>
-                  <Target className="h-10 w-10 text-[#8acb88] mb-2" />
-                  <CardTitle>Our Goal</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    To improve communication between farm heads and workers, ensuring that
-                    important farming activities such as irrigation, fertilization, pest
-                    prevention, and harvesting are completed on time and with precision.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <Lightbulb className="h-10 w-10 text-[#8acb88] mb-2" />
-                  <CardTitle>Our Approach</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    We use SMS technology to deliver timely reminders and track worker responses,
-                    making farm management accessible even in areas with limited internet
-                    connectivity.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <Users className="h-10 w-10 text-[#8acb88] mb-2" />
-                  <CardTitle>Empowering Workers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    Workers can easily respond to task notifications using simple keywords (DONE,
-                    DELAY, HELP), enabling quick communication and problem resolution.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <TrendingUp className="h-10 w-10 text-[#8acb88] mb-2" />
-                  <CardTitle>Improving Efficiency</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">
-                    By automating task reminders and tracking completion rates, farm heads can
-                    focus on strategic decision-making while ensuring operational excellence.
-                  </p>
-                </CardContent>
-              </Card>
+          <div className="grid gap-12 lg:grid-cols-[0.9fr_0.95fr] items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#eff7ed] px-4 py-2 text-sm font-semibold text-[#3d5a36] shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-[#91b554]" />
+                Mission-led farm automation
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">Our Mission</h2>
+              <p className="text-[#4f5d46] leading-relaxed text-lg">
+                AniAlerto is committed to transforming corn farm management by bridging the communication gap between farm heads and workers. Our SMS-based advisory system ensures that critical farming activities are completed on time, improving overall farm productivity and crop yields.
+              </p>
+              <p className="text-[#4f5d46] leading-relaxed text-lg">
+                We understand the challenges faced by farm managers in coordinating multiple tasks across large agricultural operations. AniAlerto provides a simple yet powerful solution that leverages mobile technology to keep everyone informed and accountable.
+              </p>
             </div>
-          </div>
-        </div>
-      </section>
+            <div className="relative">
+              <div className="absolute inset-x-0 top-8 h-48 rounded-[2.5rem] bg-[#91b554]/15 blur-3xl" />
+              <div className="relative rounded-[2rem] border border-[#dce8d6] bg-white p-8 shadow-2xl shadow-[#1d3a1a]/10">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Card className="border-[#e5eddc] shadow-sm hover:shadow-lg transition-shadow duration-300">
+                    <CardHeader>
+                      <Target className="h-10 w-10 text-[#556b2f] mb-3" />
+                      <CardTitle>Our Goal</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-[#4f5d46]">
+                        Improve communication between farm heads and workers, ensuring that irrigation, fertilization, pest prevention, and harvesting are completed on time and with precision.
+                      </p>
+                    </CardContent>
+                  </Card>
 
-      {/* SDG Contribution Section */}
-      <section className="py-16 bg-[#e4fde1]">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold mb-4 text-center">
-              Contributing to Sustainable Development Goals
-            </h2>
-            <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">
-              AniAlerto is committed to supporting the United Nations Sustainable Development Goals
-              through innovative agricultural technology and sustainable farming practices.
-            </p>
+                  <Card className="border-[#e5eddc] shadow-sm hover:shadow-lg transition-shadow duration-300">
+                    <CardHeader>
+                      <Lightbulb className="h-10 w-10 text-[#556b2f] mb-3" />
+                      <CardTitle>Our Approach</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-[#4f5d46]">
+                        Use SMS technology to deliver timely reminders and track worker responses, making farm management accessible even in areas with limited internet connectivity.
+                      </p>
+                    </CardContent>
+                  </Card>
 
-            <div className="grid md:grid-cols-2 gap-8">
-              <Card className="bg-white border-2 border-[#8acb88]">
-                <CardHeader>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 bg-[#8acb88] rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                      2
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">SDG 2: Zero Hunger</CardTitle>
-                      <p className="text-sm text-gray-600">End hunger, achieve food security</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">
-                    AniAlerto directly contributes to food security by improving corn production
-                    efficiency and crop yields. By ensuring timely execution of critical farming
-                    activities, we help farmers:
-                  </p>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Increase crop productivity through optimized farm management</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Reduce post-harvest losses with timely interventions</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Enhance sustainable agricultural practices for long-term food production</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Support smallholder farmers in improving their income and livelihoods</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
+                  <Card className="border-[#e5eddc] shadow-sm hover:shadow-lg transition-shadow duration-300">
+                    <CardHeader>
+                      <Users className="h-10 w-10 text-[#556b2f] mb-3" />
+                      <CardTitle>Empowering Workers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-[#4f5d46]">
+                        Workers can easily respond to task notifications with DONE, DELAY, or HELP, enabling quick communication and problem resolution.
+                      </p>
+                    </CardContent>
+                  </Card>
 
-              <Card className="bg-white border-2 border-[#8acb88]">
-                <CardHeader>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 bg-[#8acb88] rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                      9
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">SDG 9: Industry, Innovation and Infrastructure</CardTitle>
-                      <p className="text-sm text-gray-600">Build resilient infrastructure, promote innovation</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">
-                    Our SMS-based platform represents innovation in agricultural technology,
-                    making modern farm management accessible to all. We advance SDG 9 by:
-                  </p>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Leveraging mobile technology for agricultural innovation</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Providing infrastructure that works in low-connectivity areas</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Enabling digital transformation in the agricultural sector</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[#8acb88] font-bold">•</span>
-                      <span>Creating scalable solutions for sustainable agricultural development</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold mb-8 text-center">How AniAlerto Works</h2>
-
-            <div className="space-y-8">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    1
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">Admin Setup</h3>
-                  <p className="text-gray-600">
-                    The farm head or admin accesses the web dashboard to input essential farm information
-                    including batch or farm area details, crop specifications, planting dates, and workers'
-                    contact numbers.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    2
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">Configure the System</h3>
-                  <p className="text-gray-600">
-                    The admin assigns workers into groups and configures the crop calendar schedule,
-                    IF-THEN rules, and SMS templates to ensure reminders align with the farm's
-                    operational routine.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    3
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">System Computes Crop Stage</h3>
-                  <p className="text-gray-600">
-                    Once saved, AniAlerto stores the data in its database and automatically calculates
-                    the crop day and growth stage based on the planting date, enabling precise
-                    task scheduling.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    4
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">Check Due Tasks</h3>
-                  <p className="text-gray-600">
-                    The system continuously monitors the crop calendar to identify tasks that are due
-                    for the current schedule, ensuring nothing is overlooked.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    5
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">Generate and Send SMS</h3>
-                  <p className="text-gray-600">
-                    When a task is due, AniAlerto selects the appropriate advisory using configured rules,
-                    generates the SMS from the template, queues it for delivery, and sends it through
-                    the SMS gateway to the assigned workers.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    6
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">Log Everything</h3>
-                  <p className="text-gray-600">
-                    After delivery, AniAlerto automatically records the delivery result (sent or failed)
-                    in the system logs for comprehensive monitoring and accountability.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#8acb88] text-white rounded-full flex items-center justify-center font-bold">
-                    7
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl mb-2">Optional Two-Way Replies</h3>
-                  <p className="text-gray-600">
-                    If two-way SMS is enabled, workers can respond using structured keywords such as
-                    DONE, DELAY, or HELP. The system automatically updates and logs the task status
-                    for real-time tracking.
-                  </p>
+                  <Card className="border-[#e5eddc] shadow-sm hover:shadow-lg transition-shadow duration-300">
+                    <CardHeader>
+                      <TrendingUp className="h-10 w-10 text-[#556b2f] mb-3" />
+                      <CardTitle>Improving Efficiency</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-[#4f5d46]">
+                        Automate reminders and track completion rates so farm heads can focus on strategy while operations stay consistent.
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             </div>
@@ -305,55 +96,160 @@ export function AboutPage() {
         </div>
       </section>
 
-      {/* Benefits Section */}
-      <section className="py-16 bg-white">
+      <section className="relative overflow-hidden py-20 bg-[#eaf6e1]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.4),_transparent_25%),radial-gradient(circle_at_bottom_right,_rgba(56,89,24,0.15),_transparent_35%)]" />
+        <div className="container mx-auto relative z-10 px-4">
+          <div className="max-w-4xl mx-auto text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold">Contributing to Sustainable Development Goals</h2>
+            <p className="text-[#3e5035] mt-4 leading-relaxed text-lg">
+              AniAlerto supports sustainable agriculture by improving productivity, strengthening rural infrastructure, and making digital farm operations accessible to more communities.
+            </p>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Card className="border-l-8 border-[#91b554] bg-white p-8 shadow-xl shadow-[#92b56d]/10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#556b2f] text-xl font-bold text-white">
+                  2
+                </div>
+                <div>
+                  <CardTitle className="text-2xl">SDG 2: Zero Hunger</CardTitle>
+                  <p className="text-sm text-[#566a48]">End hunger, achieve food security</p>
+                </div>
+              </div>
+              <CardContent>
+                <p className="text-[#4c5f3c] mb-4">
+                  AniAlerto directly contributes to food security by improving corn production efficiency and crop yields.
+                </p>
+                <ul className="space-y-3 text-[#4c5f3c]">
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Increase crop productivity through optimized farm management.</li>
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Reduce post-harvest losses with timely interventions.</li>
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Enhance sustainable agricultural practices for long-term production.</li>
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Support smallholder farmers in improving income and livelihoods.</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-8 border-[#91b554] bg-white p-8 shadow-xl shadow-[#92b56d]/10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#556b2f] text-xl font-bold text-white">
+                  9
+                </div>
+                <div>
+                  <CardTitle className="text-2xl">SDG 9: Industry, Innovation and Infrastructure</CardTitle>
+                  <p className="text-sm text-[#566a48]">Build resilient infrastructure, promote innovation</p>
+                </div>
+              </div>
+              <CardContent>
+                <p className="text-[#4c5f3c] mb-4">
+                  Our SMS platform brings innovation to agricultural workflows and supports farm resilience.
+                </p>
+                <ul className="space-y-3 text-[#4c5f3c]">
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Leverage mobile technology for agricultural innovation.</li>
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Provide infrastructure that works in low-connectivity areas.</li>
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Enable digital transformation in the agricultural sector.</li>
+                  <li className="flex gap-2"><span className="text-[#91b554] font-bold">•</span> Create scalable solutions for sustainable growth.</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold mb-8 text-center">Benefits of Using AniAlerto</h2>
+          <div className="max-w-4xl mx-auto text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold">How AniAlerto Works</h2>
+            <p className="text-[#4f5d46] mt-4 leading-relaxed text-lg">
+              A simple, reliable workflow designed to keep teams aligned and crops on schedule.
+            </p>
+          </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="border-l-4 border-[#8acb88] pl-4">
-                <h3 className="font-bold mb-2">Improved Communication</h3>
-                <p className="text-gray-600">
-                  Ensure clear, timely communication between farm management and workers
-                </p>
+          <div className="space-y-6">
+            {[
+              {
+                title: "Admin Setup",
+                text: "Farm heads enter batch details, crop schedules, and worker contacts into the dashboard so the system starts with the right data.",
+              },
+              {
+                title: "Configure the System",
+                text: "Workers are grouped, SMS templates are defined, and reminders are aligned with the farm's operational calendar.",
+              },
+              {
+                title: "System Computes Crop Stage",
+                text: "AniAlerto calculates crop day and growth stage automatically based on planting dates for precise task timing.",
+              },
+              {
+                title: "Check Due Tasks",
+                text: "The system continuously monitors the crop calendar and flags the tasks that are due for the current schedule.",
+              },
+              {
+                title: "Generate and Send SMS",
+                text: "When a task is due, the platform selects the right advisory, builds the message, queues it, and sends it through the SMS gateway.",
+              },
+              {
+                title: "Log Everything",
+                text: "Delivery results are recorded automatically so farm managers can monitor success rates and troubleshoot issues.",
+              },
+              {
+                title: "Optional Two-Way Replies",
+                text: "Workers can reply with DONE, DELAY, or HELP, and AniAlerto updates task status for real-time visibility.",
+              },
+            ].map((step, index) => (
+              <div key={step.title} className="group rounded-[1.75rem] border border-[#d9e7d3] bg-white p-6 shadow-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#91b554] text-lg font-bold text-white">
+                    {index + 1}
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#243723]">{step.title}</h3>
+                </div>
+                <p className="text-[#556d4a] leading-relaxed">{step.text}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              <div className="border-l-4 border-[#8acb88] pl-4">
-                <h3 className="font-bold mb-2">Increased Productivity</h3>
-                <p className="text-gray-600">
-                  Reduce delays and missed tasks through automated reminders and tracking
-                </p>
+      <section className="py-20 bg-[#eff8ed]">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold">Benefits of Using AniAlerto</h2>
+            <p className="text-[#4f5d46] mt-4 leading-relaxed text-lg">
+              Built for strong teams, better decisions, and higher crop performance.
+            </p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {[
+              {
+                title: "Improved Communication",
+                text: "Ensure clear, timely coordination between management and workers.",
+              },
+              {
+                title: "Increased Productivity",
+                text: "Reduce delays and missed tasks using automated reminders and visibility.",
+              },
+              {
+                title: "Better Crop Management",
+                text: "Execute farming activities at optimal times for healthier yields.",
+              },
+              {
+                title: "Easy to Use",
+                text: "SMS-based interaction works without smartphones or constant internet.",
+              },
+              {
+                title: "Accountability",
+                text: "Track task completion and worker responses for better oversight.",
+              },
+              {
+                title: "Data-Driven Decisions",
+                text: "Use logs and reports to optimize farm operations over time.",
+              },
+            ].map((benefit) => (
+              <div key={benefit.title} className="rounded-[1.75rem] border border-[#d9e7d3] bg-white p-6 shadow-lg">
+                <h3 className="text-xl font-semibold text-[#273930] mb-3">{benefit.title}</h3>
+                <p className="text-[#556d4a] leading-relaxed">{benefit.text}</p>
               </div>
-
-              <div className="border-l-4 border-[#8acb88] pl-4">
-                <h3 className="font-bold mb-2">Better Crop Management</h3>
-                <p className="text-gray-600">
-                  Execute farming activities at optimal times for improved crop health and yields
-                </p>
-              </div>
-
-              <div className="border-l-4 border-[#8acb88] pl-4">
-                <h3 className="font-bold mb-2">Easy to Use</h3>
-                <p className="text-gray-600">
-                  Simple SMS-based interface requires no smartphones or internet connection
-                </p>
-              </div>
-
-              <div className="border-l-4 border-[#8acb88] pl-4">
-                <h3 className="font-bold mb-2">Accountability</h3>
-                <p className="text-gray-600">
-                  Track task completion and worker responses for better farm oversight
-                </p>
-              </div>
-
-              <div className="border-l-4 border-[#8acb88] pl-4">
-                <h3 className="font-bold mb-2">Data-Driven Decisions</h3>
-                <p className="text-gray-600">
-                  Generate reports and analytics to optimize farm operations over time
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
