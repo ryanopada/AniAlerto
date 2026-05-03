@@ -7,22 +7,29 @@ export function PublicLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b bg-white sticky top-0 z-50">
+    <div className="min-h-screen flex flex-col bg-[#F1F5F2]">
+      {/* Navbar with Sage Background (#97ae5f) */}
+      <header className="bg-[#97ae5f] sticky top-0 z-50 shadow-md transition-colors">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <Sprout className="h-8 w-8 text-[#8acb88]" />
-              <span className="font-bold text-xl">AniAlerto</span>
+            <Link to="/" className="flex items-center gap-2 group">
+              <Sprout className="h-8 w-8 text-white" />
+              <span className="font-bold text-xl text-white tracking-tight">AniAlerto</span>
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
-              <Link to="/" className="text-sm hover:text-[#8acb88] transition-colors">
+            <nav className="hidden md:flex items-center gap-8">
+              <Link to="/" className="text-sm font-medium text-white hover:text-[#F1F5F2] transition-colors">
                 Home
               </Link>
+              <Link to="/about" className="text-sm font-medium text-white hover:text-[#F1F5F2] transition-colors">
+                About
+              </Link>
+              <Link to="/corn-guide" className="text-sm font-medium text-white hover:text-[#F1F5F2] transition-colors">
+                Farming Guide
+              </Link>
               <Link to="/login">
-                <Button size="sm" className="bg-[#8acb88] hover:bg-[#648381]">
+                <Button size="sm" className="bg-[#556B2F] hover:bg-[#91b554] text-white border-none shadow-sm rounded-md">
                   Admin Login
                 </Button>
               </Link>
@@ -30,7 +37,7 @@ export function PublicLayout() {
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden"
+              className="md:hidden text-white p-2"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -39,16 +46,30 @@ export function PublicLayout() {
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <nav className="md:hidden py-4 flex flex-col gap-4">
+            <nav className="md:hidden py-6 flex flex-col gap-4 border-t border-white/20 animate-in fade-in slide-in-from-top-4">
               <Link
                 to="/"
-                className="text-sm hover:text-[#8acb88] transition-colors"
+                className="text-white font-medium hover:bg-white/10 p-2 rounded transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Home
               </Link>
+              <Link
+                to="/about"
+                className="text-white font-medium hover:bg-white/10 p-2 rounded transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                About
+              </Link>
+              <Link
+                to="/corn-guide"
+                className="text-white font-medium hover:bg-white/10 p-2 rounded transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Farming Guide
+              </Link>
               <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button size="sm" className="bg-[#8acb88] hover:bg-[#648381] w-full">
+                <Button size="lg" className="bg-[#556B2F] hover:bg-[#91b554] text-white w-full mt-2">
                   Admin Login
                 </Button>
               </Link>
@@ -57,49 +78,51 @@ export function PublicLayout() {
         </div>
       </header>
 
+      {/* Main Content Area */}
       <main className="flex-1">
         <Outlet />
       </main>
 
-      <footer className="bg-[#575761] text-white py-8 mt-auto">
+      {/* Footer with Dark Theme */}
+      <footer className="bg-[#2C2C2C] text-white py-12 mt-auto">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-12">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Sprout className="h-6 w-6 text-[#8acb88]" />
-                <span className="font-bold text-lg">AniAlerto</span>
+              <div className="flex items-center gap-2 mb-6">
+                <Sprout className="h-6 w-6 text-[#97ae5f]" />
+                <span className="font-bold text-xl tracking-tight">AniAlerto</span>
               </div>
-              <p className="text-sm text-gray-400">
-                SMS-based advisory system for corn farm management
+              <p className="text-sm text-[#777] leading-relaxed">
+                Empowering Filipino farmers through automated, rule-based SMS advisory for precision corn management.
               </p>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Contact Information</h3>
-              <p className="text-sm text-gray-400">Email: info@anialerto.com</p>
-              <p className="text-sm text-gray-400">Phone: +63 123 456 7890</p>
+              <h3 className="font-bold text-lg mb-6 text-white">Contact Us</h3>
+              <p className="text-sm text-[#777] mb-2">Email: info@anialerto.com</p>
+              <p className="text-sm text-[#777]">Phone: +63 123 456 7890</p>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Quick Links</h3>
-              <div className="flex flex-col gap-2">
-                <Link to="/" className="text-sm text-gray-400 hover:text-white transition-colors">
+              <h3 className="font-bold text-lg mb-6 text-white">Quick Links</h3>
+              <div className="flex flex-col gap-3">
+                <Link to="/" className="text-sm text-[#777] hover:text-[#97ae5f] transition-colors">
                   Home
                 </Link>
-                <Link to="/about" className="text-sm text-gray-400 hover:text-white transition-colors">
+                <Link to="/about" className="text-sm text-[#777] hover:text-[#97ae5f] transition-colors">
                   About AniAlerto
                 </Link>
-                <Link to="/corn-guide" className="text-sm text-gray-400 hover:text-white transition-colors">
+                <Link to="/corn-guide" className="text-sm text-[#777] hover:text-[#97ae5f] transition-colors">
                   Corn Farming Guide
                 </Link>
-                <Link to="/farm-tour" className="text-sm text-gray-400 hover:text-white transition-colors">
-                  Get to Know the Farm
+                <Link to="/farm-tour" className="text-sm text-[#777] hover:text-[#97ae5f] transition-colors">
+                  Explore the Farm
                 </Link>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
+          <div className="border-t border-white/5 mt-12 pt-8 text-center text-xs text-[#777] tracking-widest uppercase">
             <p>&copy; 2026 AniAlerto. All rights reserved.</p>
           </div>
         </div>

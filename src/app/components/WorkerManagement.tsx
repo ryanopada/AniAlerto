@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Plus, Edit, Trash2, Search, Users, UserCheck, UserX, ChevronDown, ChevronUp, BarChart3, Loader2 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Worker {
   id: string;
@@ -18,8 +18,14 @@ interface Worker {
   status: "Active" | "Inactive";
 }
 
+interface Batch {
+  id: string;
+  name: string;
+}
+
 export function WorkerManagement() {
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]); 
   const [loading, setLoading] = useState(true);
   const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -34,13 +40,14 @@ export function WorkerManagement() {
     status: "Active" as Worker["status"],
   });
 
-  const API_URL = "http://localhost/anialerto-backend/src/workers.php"; 
+  const WORKER_API_URL = "http://localhost/anialerto-backend/src/workers.php";
+  const BATCH_API_URL = "http://localhost/anialerto-backend/src/batches.php";
 
   const fetchWorkers = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("Failed to fetch");
+      const response = await fetch(WORKER_API_URL);
+      if (!response.ok) throw new Error("Failed to fetch workers");
       const data = await response.json();
       setWorkers(data);
     } catch (error) {
@@ -50,8 +57,22 @@ export function WorkerManagement() {
     }
   };
 
+  const fetchBatches = async () => {
+    try {
+      const response = await fetch(BATCH_API_URL);
+      if (!response.ok) throw new Error("Failed to fetch batches");
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setBatches(data);
+      }
+    } catch (error) {
+      console.error("Error loading batches for dropdown:", error);
+    }
+  };
+
   useEffect(() => {
     fetchWorkers();
+    fetchBatches();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +80,7 @@ export function WorkerManagement() {
     const method = editingWorker ? "PUT" : "POST";
     
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(WORKER_API_URL, {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingWorker ? { ...formData, id: editingWorker.id } : formData),
@@ -67,7 +88,7 @@ export function WorkerManagement() {
 
       if (response.ok) {
         setIsDialogOpen(false);
-        fetchWorkers(); 
+        fetchWorkers();
       }
     } catch (error) {
       console.error("Error saving worker:", error);
@@ -78,7 +99,7 @@ export function WorkerManagement() {
     if (!confirm("Are you sure you want to remove this worker?")) return;
     
     try {
-      const response = await fetch(`${API_URL}?id=${id}`, { method: "DELETE" });
+      const response = await fetch(`${WORKER_API_URL}?id=${id}`, { method: "DELETE" });
       if (response.ok) fetchWorkers();
     } catch (error) {
       console.error("Error deleting worker:", error);
@@ -108,6 +129,7 @@ export function WorkerManagement() {
       assignedBatch: worker.assignedBatch,
       status: worker.status,
     });
+    fetchBatches();
     setIsDialogOpen(true);
   };
 
@@ -118,19 +140,22 @@ export function WorkerManagement() {
           <h1 className="text-3xl font-bold text-[#575761]">Worker Management</h1>
           <p className="text-gray-500">System registry for AniAlerto field personnel</p>
         </div>
-        <Button className="bg-[#8acb88] hover:bg-[#648381] text-white" onClick={() => { setEditingWorker(null); setIsDialogOpen(true); }}>
+        <Button className="bg-[#8acb88] hover:bg-[#648381] text-white" onClick={() => { 
+          setEditingWorker(null); 
+          setFormData({ name: "", phone: "", assignedBatch: "", status: "Active" });
+          fetchBatches(); 
+          setIsDialogOpen(true); 
+        }}>
           <Plus className="h-4 w-4 mr-2" /> Register Worker
         </Button>
       </header>
 
-      {/* Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard title="Total Registry" value={stats.total} icon={<Users />} color="border-l-[#8acb88]" />
         <StatCard title="Active Personnel" value={stats.active} icon={<UserCheck />} color="border-l-[#8acb88]" textColor="text-[#8acb88]" />
         <StatCard title="Inactive" value={stats.inactive} icon={<UserX />} color="border-l-gray-300" textColor="text-gray-400" />
       </div>
 
-      {/* Analytics Collapsible */}
       <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen} className="border border-[#8acb88] rounded-xl overflow-hidden shadow-sm bg-white">
         <CollapsibleTrigger asChild>
           <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#e4fde1]">
@@ -156,7 +181,6 @@ export function WorkerManagement() {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Main Table */}
       <Card className="shadow-sm border-none">
         <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -209,7 +233,6 @@ export function WorkerManagement() {
         </CardContent>
       </Card>
 
-      {/* Register/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editingWorker ? "Edit Worker" : "Register Worker"}</DialogTitle></DialogHeader>
@@ -224,7 +247,19 @@ export function WorkerManagement() {
             </div>
             <div className="space-y-2">
               <Label>Batch Assignment</Label>
-              <Input value={formData.assignedBatch} onChange={e => setFormData({...formData, assignedBatch: e.target.value})} placeholder="e.g. BATCH-01" required />
+              <select 
+                className="w-full border rounded-md p-2 bg-white" 
+                value={formData.assignedBatch} 
+                onChange={e => setFormData({...formData, assignedBatch: e.target.value})}
+                required
+              >
+                <option value="" disabled>Select a batch</option>
+                {batches.map((batch) => (
+                  <option key={batch.id} value={batch.name}>
+                    {batch.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>

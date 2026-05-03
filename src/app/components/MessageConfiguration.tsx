@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Plus, Edit, Trash2, Send, Eye, ChevronDown, ChevronUp, BarChart3 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface MessageTemplate {
   id: string;
@@ -65,16 +65,10 @@ export function MessageConfiguration() {
     { value: "OK", label: "OK - Acknowledged", color: "text-blue-600" },
   ];
 
+  // Logic for CRUD remains the same[cite: 3]
   const handleCreateTemplate = () => {
     setEditingTemplate(null);
-    setFormData({
-      name: "",
-      category: "General",
-      message: "",
-      days_after_planting: 0,
-      active: true,
-      expected_responses: [],
-    });
+    setFormData({ name: "", category: "General", message: "", days_after_planting: 0, active: true, expected_responses: [] });
     setIsDialogOpen(true);
   };
 
@@ -107,7 +101,6 @@ export function MessageConfiguration() {
   const handleToggleActive = async (id: string) => {
     const template = templates.find(t => t.id === id);
     if (!template) return;
-    
     await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -127,19 +120,12 @@ export function MessageConfiguration() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      ...formData,
-      id: editingTemplate?.id,
-      active: formData.active ? 1 : 0,
-      trigger_type: "days_after_planting"
-    };
-
+    const payload = { ...formData, id: editingTemplate?.id, active: formData.active ? 1 : 0, trigger_type: "days_after_planting" };
     await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    
     setIsDialogOpen(false);
     fetchTemplates();
   };
@@ -181,37 +167,29 @@ export function MessageConfiguration() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingTemplate ? "Edit Message Template" : "Create New Message Template"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingTemplate ? "Update the message template below" : "Create a new SMS message template for farm activities"}
-              </DialogDescription>
+              <DialogTitle>{editingTemplate ? "Edit Message Template" : "Create New Message Template"}</DialogTitle>
+              <DialogDescription>{editingTemplate ? "Update the message template below" : "Create a new SMS message template for farm activities"}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Template Name</Label>
                 <Input id="name" placeholder="e.g., First Irrigation Reminder" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <select id="category" className="w-full border rounded-md px-3 py-2" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as MessageTemplate["category"] })} required>
                   {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="message">Message Content</Label>
                 <Textarea id="message" placeholder="Enter the SMS message content..." value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} required />
                 <p className="text-xs text-gray-500">Character count: {formData.message.length} (SMS limit: 160 characters per message)</p>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="days_after_planting">Days After Planting</Label>
                 <Input id="days_after_planting" type="number" min="0" placeholder="e.g., 7" value={formData.days_after_planting} onChange={(e) => setFormData({ ...formData, days_after_planting: parseInt(e.target.value) })} required />
               </div>
-
               <div className="space-y-2">
                 <Label>Expected Response Commands</Label>
                 <div className="space-y-2">
@@ -223,12 +201,10 @@ export function MessageConfiguration() {
                   ))}
                 </div>
               </div>
-
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="active" checked={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.checked })} className="h-4 w-4" />
                 <Label htmlFor="active">Active (send this message automatically)</Label>
               </div>
-
               <div className="flex gap-2 pt-4">
                 {editingTemplate && (
                   <Button type="button" variant="destructive" onClick={() => handleDeleteTemplate(editingTemplate.id)} className="mr-auto"><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
@@ -259,6 +235,26 @@ export function MessageConfiguration() {
         </DialogContent>
       </Dialog>
 
+      {/* Moved: Total Templates Stats Row[cite: 3] */}
+      <div className="grid md:grid-cols-3 gap-4">
+        <Card><CardHeader><CardTitle className="text-lg">Total Templates</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-green-600">{templates.length}</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-lg">Active Templates</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-blue-600">{templates.filter(t => !!t.active).length}</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-lg">Categories</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-purple-600">{new Set(templates.map(t => t.category)).size}</p></CardContent></Card>
+      </div>
+
+      {/* Moved: SMS Response Keywords[cite: 3] */}
+      <Card className="bg-blue-50">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-blue-600" />SMS Response Keywords</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-green-600 mb-1">DONE</p><p className="text-xs text-gray-600">Task completed successfully</p></div>
+            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-yellow-600 mb-1">DELAY</p><p className="text-xs text-gray-600">Task postponed or delayed</p></div>
+            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-red-600 mb-1">HELP</p><p className="text-xs text-gray-600">Assistance or guidance needed</p></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Moved After Stats: Message Analytics & Visualizations[cite: 3] */}
       <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen}>
         <Card className="border-[#8acb88]">
           <CollapsibleTrigger className="w-full">
@@ -300,6 +296,7 @@ export function MessageConfiguration() {
         </Card>
       </Collapsible>
 
+      {/* Message Templates Table[cite: 3] */}
       <Card>
         <CardHeader>
           <CardTitle>Message Templates</CardTitle>
@@ -341,23 +338,6 @@ export function MessageConfiguration() {
                 ))}
               </TableBody>
             </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-3 gap-4">
-        <Card><CardHeader><CardTitle className="text-lg">Total Templates</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-green-600">{templates.length}</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-lg">Active Templates</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-blue-600">{templates.filter(t => !!t.active).length}</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-lg">Categories</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-purple-600">{new Set(templates.map(t => t.category)).size}</p></CardContent></Card>
-      </div>
-
-      <Card className="bg-blue-50">
-        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-blue-600" />SMS Response Keywords</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-green-600 mb-1">DONE</p><p className="text-xs text-gray-600">Task completed successfully</p></div>
-            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-yellow-600 mb-1">DELAY</p><p className="text-xs text-gray-600">Task postponed or delayed</p></div>
-            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-red-600 mb-1">HELP</p><p className="text-xs text-gray-600">Assistance or guidance needed</p></div>
           </div>
         </CardContent>
       </Card>

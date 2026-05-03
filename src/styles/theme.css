@@ -2,45 +2,44 @@
 
 :root {
   --font-size: 16px;
-  --background: #ffffff;
-  --foreground: #575761;
+  /* Updated to Soft Grey Background */
+  --background: #F1F5F2; 
+  /* Body Text Color */
+  --foreground: #555555; 
   --card: #ffffff;
-  --card-foreground: #575761;
+  --card-foreground: #2C2C2C;
   --popover: #ffffff;
-  --popover-foreground: #575761;
-  --primary: #8acb88;
+  --popover-foreground: #2C2C2C;
+  /* Primary Green (Dark Olive) */
+  --primary: #556B2F; 
   --primary-foreground: #ffffff;
-  --secondary: #e4fde1;
-  --secondary-foreground: #575761;
-  --muted: #e4fde1;
-  --muted-foreground: #648381;
-  --accent: #ffbf46;
-  --accent-foreground: #575761;
+  /* Navbar Color (Sage Green) */
+  --secondary: #97ae5f;
+  --secondary-foreground: #ffffff;
+  /* Subtext Color */
+  --muted: #f8fafc;
+  --muted-foreground: #777777;
+  /* Hover Color (Light Olive) */
+  --accent: #91b554; 
+  --accent-foreground: #ffffff;
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
-  --border: rgba(100, 131, 129, 0.2);
+  --border: rgba(44, 44, 44, 0.1);
   --input: transparent;
-  --input-background: #e4fde1;
-  --switch-background: #648381;
+  --input-background: #ffffff;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #8acb88;
-  --chart-1: #8acb88;
-  --chart-2: #648381;
-  --chart-3: #ffbf46;
-  --chart-4: #e4fde1;
-  --chart-5: #575761;
-  --radius: 0.625rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #575761;
-  --sidebar-primary: #8acb88;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e4fde1;
-  --sidebar-accent-foreground: #575761;
-  --sidebar-border: rgba(100, 131, 129, 0.2);
-  --sidebar-ring: #8acb88;
+  --ring: #556B2F;
+  /* Sidebar uses the Navbar color for consistency */
+  --sidebar: #97ae5f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #556B2F;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #556B2F;
 }
-
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

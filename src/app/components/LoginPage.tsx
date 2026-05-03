@@ -21,7 +21,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError("");
 
     if (username && password) {
-      if (username === "admin" && password === "admin") {
+      if (username === "admin" && password === "@dmin123") {
         onLogin();
         navigate("/admin/dashboard");
       } else {
