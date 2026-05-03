@@ -10,6 +10,7 @@ import { Plus, Edit, Trash2, Send, Eye, ChevronDown, ChevronUp, BarChart3 } from
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { motion } from "motion/react";
 
 interface MessageTemplate {
   id: string;
@@ -65,7 +66,6 @@ export function MessageConfiguration() {
     { value: "OK", label: "OK - Acknowledged", color: "text-blue-600" },
   ];
 
-  // Logic for CRUD remains the same[cite: 3]
   const handleCreateTemplate = () => {
     setEditingTemplate(null);
     setFormData({ name: "", category: "General", message: "", days_after_planting: 0, active: true, expected_responses: [] });
@@ -152,20 +152,27 @@ export function MessageConfiguration() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start">
+    <div className="min-h-screen bg-gradient-to-br from-[#f3faf2] via-[#f9fcf7] to-[#eff7eb] space-y-6 p-6">
+      <motion.div
+        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
         <div>
-          <h1 className="text-3xl font-bold mb-2">Advisory Message Configuration</h1>
-          <p className="text-gray-600">Configure SMS message templates for farm activities</p>
+          <h1 className="text-3xl font-bold mb-2 text-[#3d5a36]">Advisory Message Configuration</h1>
+          <p className="text-[#556d4a]">Configure SMS message templates for farm activities</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#8acb88] hover:bg-[#648381]" onClick={handleCreateTemplate}>
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+            <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={handleCreateTemplate}>
               <Plus className="h-4 w-4 mr-2" />
               Create Template
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          </motion.div>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-[1.5rem] border border-[#d9ead6] bg-[#f8fdf3] shadow-2xl shadow-[#a4c692]/20">
             <DialogHeader>
               <DialogTitle>{editingTemplate ? "Edit Message Template" : "Create New Message Template"}</DialogTitle>
               <DialogDescription>{editingTemplate ? "Update the message template below" : "Create a new SMS message template for farm activities"}</DialogDescription>
@@ -215,7 +222,7 @@ export function MessageConfiguration() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-2xl">
@@ -236,11 +243,25 @@ export function MessageConfiguration() {
       </Dialog>
 
       {/* Moved: Total Templates Stats Row[cite: 3] */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <Card><CardHeader><CardTitle className="text-lg">Total Templates</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-green-600">{templates.length}</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-lg">Active Templates</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-blue-600">{templates.filter(t => !!t.active).length}</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-lg">Categories</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-purple-600">{new Set(templates.map(t => t.category)).size}</p></CardContent></Card>
-      </div>
+      <motion.div
+        className="grid md:grid-cols-3 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+      >
+        <Card className="rounded-[1.5rem] border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
+          <CardHeader><CardTitle className="text-lg text-[#3d5a36]">Total Templates</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-[#5d8044]">{templates.length}</p></CardContent>
+        </Card>
+        <Card className="rounded-[1.5rem] border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
+          <CardHeader><CardTitle className="text-lg text-[#3d5a36]">Active Templates</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-[#5d8044]">{templates.filter(t => !!t.active).length}</p></CardContent>
+        </Card>
+        <Card className="rounded-[1.5rem] border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
+          <CardHeader><CardTitle className="text-lg text-[#3d5a36]">Categories</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-[#5d8044]">{new Set(templates.map(t => t.category)).size}</p></CardContent>
+        </Card>
+      </motion.div>
 
       {/* Moved: SMS Response Keywords[cite: 3] */}
       <Card className="bg-blue-50">
@@ -255,18 +276,23 @@ export function MessageConfiguration() {
       </Card>
 
       {/* Moved After Stats: Message Analytics & Visualizations[cite: 3] */}
-      <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen}>
-        <Card className="border-[#8acb88]">
-          <CollapsibleTrigger className="w-full">
-            <CardHeader className="cursor-pointer hover:bg-[#e4fde1] transition-colors">
-              <div className={`flex items-center ${isVisualizationOpen ? 'justify-between' : 'justify-center'}`}>
-                <div className="flex items-center gap-2"><BarChart3 className="h-6 w-6 text-[#8acb88]" /><CardTitle>Message Analytics & Visualizations</CardTitle></div>
-                {isVisualizationOpen ? <ChevronUp className="h-5 w-5 text-[#648381]" /> : <ChevronDown className="h-5 w-5 text-[#648381]" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="pt-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.35 }}
+      >
+        <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen}>
+          <Card className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-[#eff7ed] transition-colors p-6">
+                <div className={`flex items-center ${isVisualizationOpen ? 'justify-between' : 'justify-center'}`}>
+                  <div className="flex items-center gap-2 text-[#3d5a36]"><BarChart3 className="h-6 w-6 text-[#5d8044]" /><CardTitle>Message Analytics & Visualizations</CardTitle></div>
+                  {isVisualizationOpen ? <ChevronUp className="h-5 w-5 text-[#5d8044]" /> : <ChevronDown className="h-5 w-5 text-[#5d8044]" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-6 bg-[#f8fdf3]">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#575761]">Messages by Category</h3>
@@ -295,46 +321,60 @@ export function MessageConfiguration() {
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      </motion.div>
 
       {/* Message Templates Table[cite: 3] */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Message Templates</CardTitle>
-          <CardDescription>Manage automated SMS message templates for various farm activities</CardDescription>
+      <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
+        <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0]">
+          <CardTitle className="text-[#3d5a36]">Message Templates</CardTitle>
+          <CardDescription className="text-[#556d4a]">Manage automated SMS message templates for various farm activities</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-[#f3faf2]">
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Message Preview</TableHead>
-                  <TableHead>Expected Responses</TableHead>
-                  <TableHead>Days After Planting</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-[#556d4a]">ID</TableHead>
+                  <TableHead className="text-[#556d4a]">Name</TableHead>
+                  <TableHead className="text-[#556d4a]">Category</TableHead>
+                  <TableHead className="text-[#556d4a]">Message Preview</TableHead>
+                  <TableHead className="text-[#556d4a]">Expected Responses</TableHead>
+                  <TableHead className="text-[#556d4a]">Days After Planting</TableHead>
+                  <TableHead className="text-[#556d4a]">Status</TableHead>
+                  <TableHead className="text-[#556d4a]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((template) => (
-                  <TableRow key={template.id}>
-                    <TableCell className="font-medium">{template.id}</TableCell>
-                    <TableCell>{template.name}</TableCell>
+                {templates.map((template, index) => (
+                  <motion.tr
+                    key={template.id}
+                    className="hover:bg-[#eff7ed] transition-colors duration-200"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: index * 0.03 }}
+                  >
+                    <TableCell className="font-medium text-[#3d5a36]">{template.id}</TableCell>
+                    <TableCell className="text-[#556d4a]">{template.name}</TableCell>
                     <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>{template.category}</span></TableCell>
-                    <TableCell className="max-w-xs"><p className="text-sm text-gray-600 truncate">{template.message}</p></TableCell>
+                    <TableCell className="max-w-xs"><p className="text-sm text-[#556d4a] truncate">{template.message}</p></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {template.expected_responses && template.expected_responses.length > 0 ? template.expected_responses.map((response) => (
                           <span key={response} className={`px-2 py-0.5 rounded text-xs font-medium border ${getResponseColor(response)}`}>{response}</span>
-                        )) : <span className="text-xs text-gray-400">No responses</span>}
+                        )) : <span className="text-xs text-[#7b8f6f]">No responses</span>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">{template.days_after_planting}</TableCell>
-                    <TableCell><Badge variant={template.active ? "default" : "secondary"} className="cursor-pointer" onClick={() => handleToggleActive(template.id)}>{template.active ? "Active" : "Inactive"}</Badge></TableCell>
-                    <TableCell><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}><Eye className="h-4 w-4" /></Button><Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}><Edit className="h-4 w-4" /></Button></div></TableCell>
-                  </TableRow>
+                    <TableCell className="text-center text-[#556d4a]">{template.days_after_planting}</TableCell>
+                    <TableCell>
+                      <Badge variant={template.active ? "default" : "secondary"} className="cursor-pointer" onClick={() => handleToggleActive(template.id)}>{template.active ? "Active" : "Inactive"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}><Eye className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}><Edit className="h-4 w-4" /></Button>
+                      </div>
+                    </TableCell>
+                  </motion.tr>
                 ))}
               </TableBody>
             </Table>

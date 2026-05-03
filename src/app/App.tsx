@@ -28,8 +28,13 @@ export default function App() {
 
   useEffect(() => {
     fetch('http://localhost/anialerto-backend/src/get_alerts.php')
-      .then((response) => response.json())
-      .then((data) => setAlerts(data))
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Alerts request failed with ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => setAlerts(Array.isArray(data) ? data : []))
       .catch((error) => console.error('Backend connection error:', error));
   }, []);
 
@@ -81,7 +86,7 @@ export default function App() {
           <Route path="batches" element={<BatchManagement />} />
           <Route path="workers" element={<WorkerManagement />} />
           <Route path="messages" element={<MessageConfiguration />} />
-          <Route path="monitoring" element={<SMSMonitoring alerts={alerts} />} />
+          <Route path="monitoring" element={<SMSMonitoring />} />
           <Route path="reports" element={<Reports />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Plus, Edit, Layers, CheckCircle, Map } from "lucide-react";
 import { Badge } from "./ui/badge";
+import { motion } from "motion/react";
 
 interface Batch {
   id: string;
@@ -101,22 +102,35 @@ export function BatchManagement() {
   };
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="flex justify-between items-start">
+    <div className="min-h-screen bg-gradient-to-br from-[#f3faf2] via-[#f9fcf7] to-[#eff7eb] space-y-6 p-4">
+      <motion.div 
+        className="flex justify-between items-start"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
         <div>
-          <h1 className="text-3xl font-bold mb-2">Farm Batch Management</h1>
-          <p className="text-gray-600">Managing {batches.length} active batches in SQL</p>
+          <h1 className="text-3xl font-bold mb-2 text-[#3d5a36]">Farm Batch Management</h1>
+          <p className="text-[#556d4a]">Managing {batches.length} active batches in SQL</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#8acb88] hover:bg-[#648381]" onClick={() => {
-              setEditingBatch(null);
-              setFormData({ name: "", location: "", plantingDate: "", area: "", variety: "", status: "Active", notes: "" });
-            }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Batch
-            </Button>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button 
+                className="bg-[#5d8044] hover:bg-[#4a6b36] shadow-lg shadow-[#5d8044]/30 border border-[#7a9b5c] transition-all duration-200" 
+                onClick={() => {
+                  setEditingBatch(null);
+                  setFormData({ name: "", location: "", plantingDate: "", area: "", variety: "", status: "Active", notes: "" });
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Batch
+              </Button>
+            </motion.div>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -149,103 +163,155 @@ export function BatchManagement() {
                 <Label>Notes</Label>
                 <Input value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
               </div>
-              <Button type="submit" className="w-full bg-[#8acb88] hover:bg-[#648381]">Save to Database</Button>
+              <Button type="submit" className="w-full bg-[#5d8044] hover:bg-[#4a6b36] shadow-lg shadow-[#5d8044]/30 border border-[#7a9b5c] transition-all duration-200">Save to Database</Button>
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="border-l-4 border-l-[#8acb88]">
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Batches</p>
-              <p className="text-3xl font-bold text-[#575761] mt-2">{batches.length}</p>
-            </div>
-            <Layers className="h-6 w-6 text-[#648381]" />
-          </CardContent>
-        </Card>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+      >
+        <motion.div
+          whileHover={{ y: -5 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#556d4a]">Total Batches</p>
+                <p className="text-3xl font-bold text-[#3d5a36] mt-2">{batches.length}</p>
+              </div>
+              <div className="p-3 bg-[#5d8044]/10 rounded-full">
+                <Layers className="h-6 w-6 text-[#5d8044]" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="border-l-4 border-l-[#8acb88]">
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Batches</p>
-              <p className="text-3xl font-bold text-[#8acb88] mt-2">
-                {batches.filter(b => b.status === "Active").length}
-              </p>
-            </div>
-            <CheckCircle className="h-6 w-6 text-[#8acb88]" />
-          </CardContent>
-        </Card>
+        <motion.div
+          whileHover={{ y: -5 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#556d4a]">Active Batches</p>
+                <p className="text-3xl font-bold text-[#5d8044] mt-2">
+                  {batches.filter(b => b.status === "Active").length}
+                </p>
+              </div>
+              <div className="p-3 bg-[#5d8044]/10 rounded-full">
+                <CheckCircle className="h-6 w-6 text-[#5d8044]" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="border-l-4 border-l-[#ffbf46]">
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Area</p>
-              <p className="text-3xl font-bold text-[#ffbf46] mt-2">
-                {calculateTotalArea().toFixed(1)} ha
-              </p>
-            </div>
-            <Map className="h-6 w-6 text-[#ffbf46]" />
-          </CardContent>
-        </Card>
-      </div>
+        <motion.div
+          whileHover={{ y: -5 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#556d4a]">Total Area</p>
+                <p className="text-3xl font-bold text-[#ffbf46] mt-2">
+                  {calculateTotalArea().toFixed(1)} ha
+                </p>
+              </div>
+              <div className="p-3 bg-[#ffbf46]/10 rounded-full">
+                <Map className="h-6 w-6 text-[#ffbf46]" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Farm Batches</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Variety</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {batches.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-gray-500">No batches found in database.</TableCell>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+      >
+        <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+          <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
+            <CardTitle className="text-[#3d5a36] flex items-center gap-2">
+              <Layers className="h-5 w-5 text-[#5d8044]" />
+              Active Farm Batches
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-[#e5ede0]">
+                  <TableHead className="text-[#556d4a] font-semibold">Name</TableHead>
+                  <TableHead className="text-[#556d4a] font-semibold">Location</TableHead>
+                  <TableHead className="text-[#556d4a] font-semibold">Date</TableHead>
+                  <TableHead className="text-[#556d4a] font-semibold">Variety</TableHead>
+                  <TableHead className="text-[#556d4a] font-semibold">Status</TableHead>
+                  <TableHead className="text-[#556d4a] font-semibold">Actions</TableHead>
                 </TableRow>
-              ) : (
-                batches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell className="font-medium">{batch.name}</TableCell>
-                    <TableCell>{batch.location}</TableCell>
-                    <TableCell>{batch.plantingDate}</TableCell>
-                    <TableCell>{batch.variety}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-800">{batch.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => {
-                           setEditingBatch(batch);
-                           setFormData({
-                             name: batch.name,
-                             location: batch.location,
-                             plantingDate: batch.plantingDate,
-                             area: batch.area,
-                             variety: batch.variety,
-                             status: batch.status,
-                             notes: batch.notes || ""
-                           });
-                           setIsDialogOpen(true);
-                      }}><Edit className="h-4 w-4" /></Button>
-                    </TableCell>
+              </TableHeader>
+              <TableBody>
+                {batches.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-[#556d4a]">No batches found in database.</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                ) : (
+                  batches.map((batch, index) => (
+                    <motion.tr 
+                      key={batch.id}
+                      className="border-b border-[#f0f8eb] hover:bg-[#f8fdf3] transition-colors duration-200"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.1 }}
+                    >
+                      <TableCell className="font-medium text-[#3d5a36]">{batch.name}</TableCell>
+                      <TableCell className="text-[#556d4a]">{batch.location}</TableCell>
+                      <TableCell className="text-[#556d4a]">{batch.plantingDate}</TableCell>
+                      <TableCell className="text-[#556d4a]">{batch.variety}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-[#5d8044]/10 text-[#5d8044] border border-[#5d8044]/20 hover:bg-[#5d8044]/20 transition-colors duration-200">{batch.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-[#5d8044] text-[#5d8044] hover:bg-[#5d8044] hover:text-white transition-all duration-200"
+                            onClick={() => {
+                               setEditingBatch(batch);
+                               setFormData({
+                                 name: batch.name,
+                                 location: batch.location,
+                                 plantingDate: batch.plantingDate,
+                                 area: batch.area,
+                                 variety: batch.variety,
+                                 status: batch.status,
+                                 notes: batch.notes || ""
+                               });
+                               setIsDialogOpen(true);
+                          }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </motion.div>
+                      </TableCell>
+                    </motion.tr>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

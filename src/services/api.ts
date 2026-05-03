@@ -1,4 +1,4 @@
-// API Service for AniAlerto
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 class ApiService {
@@ -27,7 +27,6 @@ class ApiService {
     }
   }
 
-  // Farm Batches
   async getBatches() {
     return this.request<{ success: boolean; data: any[] }>('/batches');
   }
@@ -70,7 +69,6 @@ class ApiService {
     );
   }
 
-  // Workers
   async getWorkers() {
     return this.request<{ success: boolean; data: any[] }>('/workers');
   }
@@ -99,7 +97,6 @@ class ApiService {
     });
   }
 
-  // Message Templates
   async getMessageTemplates() {
     return this.request<{ success: boolean; data: any[] }>('/messages/templates');
   }
@@ -128,7 +125,6 @@ class ApiService {
     });
   }
 
-  // SMS Messages
   async getSMSMessages(filters?: { status?: string; startDate?: string; endDate?: string }) {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
@@ -139,7 +135,6 @@ class ApiService {
     return this.request<{ success: boolean; data: any[] }>(`/messages/sms${query}`);
   }
 
-  // Command Responses
   async getCommandResponses() {
     return this.request<{ success: boolean; data: any[] }>('/responses');
   }
@@ -168,7 +163,6 @@ class ApiService {
     });
   }
 
-  // Reports
   async getMessageReport(startDate: string, endDate: string) {
     return this.request<{ success: boolean; data: any[] }>(
       `/reports/messages?startDate=${startDate}&endDate=${endDate}`
@@ -197,7 +191,6 @@ class ApiService {
     return this.request<{ success: boolean; data: any }>('/reports/stats');
   }
 
-  // Health Check
   async healthCheck() {
     return this.request<{ status: string; message: string; timestamp: string }>('/health');
   }

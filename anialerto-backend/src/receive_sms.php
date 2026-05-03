@@ -1,9 +1,7 @@
 <?php
-// 1. SECURITY HEADERS: Allows your hardware to talk to the server
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: text/plain; charset=UTF-8");
 
-// 2. DATABASE CONNECTION: Update these if you changed your XAMPP settings
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -11,7 +9,6 @@ $dbname = "anialerto";
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 
-// Check if connection works
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }

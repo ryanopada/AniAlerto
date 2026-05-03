@@ -27,9 +27,9 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F1F5F2]">
       {/* Top Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
+      <header className="bg-[#97ae5f] sticky top-0 z-50 shadow-md">
         <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-3">
             <button
@@ -39,18 +39,22 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <Link to="/admin/dashboard" className="flex items-center gap-2">
-              <Sprout className="h-8 w-8 text-[#8acb88]" />
-              <span className="font-bold text-xl">AniAlerto Admin</span>
+              <img 
+  src="/anialerto-logo.svg" 
+  alt="AniAlerto Logo" 
+  className="h-9 w-auto object-contain" 
+/>
+              <span className="font-bold text-white text-xl">AniAlerto Admin</span>
             </Link>
           </div>
 
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 hidden sm:inline">Administrator</span>
+            <span className="text-sm text-white hidden sm:inline">Administrator</span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleLogout}
-              className="flex items-center gap-2"
+              className="bg-[#556B2F] hover:bg-[#91b554] text-white border-none rounded-full"
             >
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Logout</span>
@@ -61,7 +65,7 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
 
       <div className="flex relative">
         {/* Sidebar - Desktop */}
-        <aside className="hidden lg:block w-64 bg-white border-r h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto flex-shrink-0">
+        <aside className="hidden lg:block w-64 bg-white/80 backdrop-blur border-r border-white/20  h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto flex-shrink-0">
           <nav className="p-4 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -72,8 +76,8 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
                   to={item.path}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? "bg-[#e4fde1] text-[#8acb88] font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
+  ? "bg-[#97ae5f]/20 text-[#556B2F] font-semibold"
+  : "text-gray-700 hover:bg-[#97ae5f]/10"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
@@ -112,7 +116,7 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 p-6 min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-6 md:p-10 min-w-0 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
