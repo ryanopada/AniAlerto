@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Trash2, Send, Eye, ChevronDown, ChevronUp, BarChart3 } from "lucide-react";
+import { Plus, Edit, Trash2, Send, Eye, ChevronDown, ChevronUp, BarChart3, Search, MessageSquare, CheckCircle, Hash } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -30,6 +30,7 @@ export function MessageConfiguration() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState<MessageTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const API_URL = "http://localhost/anialerto-backend/src/message_config.php";
 
@@ -130,15 +131,20 @@ export function MessageConfiguration() {
     fetchTemplates();
   };
 
-  const getCategoryColor = (category: MessageTemplate["category"]) => {
-    switch (category) {
-      case "Irrigation": return "bg-blue-100 text-blue-800";
-      case "Fertilization": return "bg-green-100 text-green-800";
-      case "Pest Control": return "bg-red-100 text-red-800";
-      case "Harvest": return "bg-yellow-100 text-yellow-800";
-      case "General": return "bg-gray-100 text-gray-800";
-    }
-  };
+  const stats = useMemo(() => ({
+    total: templates.length,
+    active: templates.filter(t => !!t.active).length,
+    categories: new Set(templates.map(t => t.category)).size
+  }), [templates]);
+
+  const filteredTemplates = useMemo(() => {
+    return templates.filter((template) => {
+      const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            template.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            template.message.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    });
+  }, [templates, searchQuery]);
 
   const getResponseColor = (response: string) => {
     switch (response) {
@@ -151,8 +157,18 @@ export function MessageConfiguration() {
     }
   };
 
+  const getCategoryColor = (category: MessageTemplate["category"]) => {
+    switch (category) {
+      case "Irrigation": return "bg-blue-100 text-blue-800";
+      case "Fertilization": return "bg-green-100 text-green-800";
+      case "Pest Control": return "bg-red-100 text-red-800";
+      case "Harvest": return "bg-yellow-100 text-yellow-800";
+      case "General": return "bg-gray-100 text-gray-800";
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f3faf2] via-[#f9fcf7] to-[#eff7eb] space-y-6 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#f3faf2] via-[#f9fcf7] to-[#eff7eb] space-y-6 p-6 max-w-7xl mx-auto">
       <motion.div
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         initial={{ opacity: 0, y: -20 }}
@@ -184,7 +200,7 @@ export function MessageConfiguration() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <select id="category" className="w-full border rounded-md px-3 py-2" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as MessageTemplate["category"] })} required>
+                <select id="category" className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as MessageTemplate["category"] })} required>
                   {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
               </div>
@@ -217,7 +233,9 @@ export function MessageConfiguration() {
                   <Button type="button" variant="destructive" onClick={() => handleDeleteTemplate(editingTemplate.id)} className="mr-auto"><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
                 )}
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className={editingTemplate ? "" : "ml-auto"}>Cancel</Button>
-                <Button type="submit" className="bg-[#8acb88] hover:bg-[#648381]">{editingTemplate ? "Update Template" : "Create Template"}</Button>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button type="submit" className="bg-[#8acb88] hover:bg-[#648381]">{editingTemplate ? "Update Template" : "Create Template"}</Button>
+                </motion.div>
               </div>
             </form>
           </DialogContent>
@@ -242,57 +260,34 @@ export function MessageConfiguration() {
         </DialogContent>
       </Dialog>
 
-      {/* Moved: Total Templates Stats Row[cite: 3] */}
       <motion.div
-        className="grid md:grid-cols-3 gap-4"
+        className="grid grid-cols-1 md:grid-cols-3 gap-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
-        <Card className="rounded-[1.5rem] border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
-          <CardHeader><CardTitle className="text-lg text-[#3d5a36]">Total Templates</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-[#5d8044]">{templates.length}</p></CardContent>
-        </Card>
-        <Card className="rounded-[1.5rem] border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
-          <CardHeader><CardTitle className="text-lg text-[#3d5a36]">Active Templates</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-[#5d8044]">{templates.filter(t => !!t.active).length}</p></CardContent>
-        </Card>
-        <Card className="rounded-[1.5rem] border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
-          <CardHeader><CardTitle className="text-lg text-[#3d5a36]">Categories</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-[#5d8044]">{new Set(templates.map(t => t.category)).size}</p></CardContent>
-        </Card>
+        <StatCard title="Total Templates" value={stats.total} icon={<MessageSquare />} color="border-l-[#5d8044]" textColor="text-[#3d5a36]" />
+        <StatCard title="Active Templates" value={stats.active} icon={<CheckCircle />} color="border-l-[#5d8044]" textColor="text-[#5d8044]" />
+        <StatCard title="Categories" value={stats.categories} icon={<Hash />} color="border-l-[#5d8044]" textColor="text-[#556d4a]" />
       </motion.div>
 
-      {/* Moved: SMS Response Keywords[cite: 3] */}
-      <Card className="bg-blue-50">
-        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-blue-600" />SMS Response Keywords</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-green-600 mb-1">DONE</p><p className="text-xs text-gray-600">Task completed successfully</p></div>
-            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-yellow-600 mb-1">DELAY</p><p className="text-xs text-gray-600">Task postponed or delayed</p></div>
-            <div className="bg-white p-4 rounded-lg"><p className="font-bold text-red-600 mb-1">HELP</p><p className="text-xs text-gray-600">Assistance or guidance needed</p></div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Moved After Stats: Message Analytics & Visualizations[cite: 3] */}
+      {/* Moved: Message Analytics & Visualizations[cite: 3] */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.35 }}
       >
-        <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen}>
-          <Card className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
-            <CollapsibleTrigger className="w-full">
-              <CardHeader className="cursor-pointer hover:bg-[#eff7ed] transition-colors p-6">
-                <div className={`flex items-center ${isVisualizationOpen ? 'justify-between' : 'justify-center'}`}>
-                  <div className="flex items-center gap-2 text-[#3d5a36]"><BarChart3 className="h-6 w-6 text-[#5d8044]" /><CardTitle>Message Analytics & Visualizations</CardTitle></div>
-                  {isVisualizationOpen ? <ChevronUp className="h-5 w-5 text-[#5d8044]" /> : <ChevronDown className="h-5 w-5 text-[#5d8044]" />}
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-6 bg-[#f8fdf3]">
+        <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
+              <div className="flex items-center gap-3 text-[#3d5a36]">
+                <BarChart3 className="h-5 w-5 text-[#5d8044]" />
+                <span className="font-semibold">Message Analytics</span>
+              </div>
+              {isVisualizationOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-6 border-t border-[#e5ede0] bg-[#f8fdf3]">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#575761]">Messages by Category</h3>
@@ -317,44 +312,54 @@ export function MessageConfiguration() {
                   </ResponsiveContainer>
                 </div>
               </div>
-            </CardContent>
           </CollapsibleContent>
-        </Card>
-      </Collapsible>
+        </Collapsible>
       </motion.div>
 
-      {/* Message Templates Table[cite: 3] */}
-      <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
-        <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0]">
-          <CardTitle className="text-[#3d5a36]">Message Templates</CardTitle>
-          <CardDescription className="text-[#556d4a]">Manage automated SMS message templates for various farm activities</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.45 }}
+      >
+        <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#f5fbf3] p-6 border-b border-[#e5ede0]">
+            <div>
+              <CardTitle className="text-[#3d5a36]">Message Templates</CardTitle>
+              <CardDescription className="text-[#556d4a]">Manage automated SMS message templates</CardDescription>
+            </div>
+            <div className="flex gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:flex-none">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7b8f6f]" />
+                <Input placeholder="Search..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-[#f3faf2]">
                 <TableRow>
-                  <TableHead className="text-[#556d4a]">ID</TableHead>
-                  <TableHead className="text-[#556d4a]">Name</TableHead>
-                  <TableHead className="text-[#556d4a]">Category</TableHead>
-                  <TableHead className="text-[#556d4a]">Message Preview</TableHead>
-                  <TableHead className="text-[#556d4a]">Expected Responses</TableHead>
-                  <TableHead className="text-[#556d4a]">Days After Planting</TableHead>
-                  <TableHead className="text-[#556d4a]">Status</TableHead>
-                  <TableHead className="text-[#556d4a]">Actions</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Message Preview</TableHead>
+                  <TableHead>Expected Responses</TableHead>
+                  <TableHead>Days After Planting</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((template, index) => (
+                {filteredTemplates.map((template, index) => (
                   <motion.tr
                     key={template.id}
                     className="hover:bg-[#eff7ed] transition-colors duration-200"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, delay: index * 0.03 }}
+                    transition={{ duration: 0.35, delay: index * 0.04 }}
                   >
-                    <TableCell className="font-medium text-[#3d5a36]">{template.id}</TableCell>
-                    <TableCell className="text-[#556d4a]">{template.name}</TableCell>
+                    <TableCell className="font-mono text-xs text-[#556d4a]">{template.id}</TableCell>
+                    <TableCell className="font-medium text-[#3d5a36]">{template.name}</TableCell>
                     <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>{template.category}</span></TableCell>
                     <TableCell className="max-w-xs"><p className="text-sm text-[#556d4a] truncate">{template.message}</p></TableCell>
                     <TableCell>
@@ -369,9 +374,13 @@ export function MessageConfiguration() {
                       <Badge variant={template.active ? "default" : "secondary"} className="cursor-pointer" onClick={() => handleToggleActive(template.id)}>{template.active ? "Active" : "Inactive"}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}><Eye className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}><Edit className="h-4 w-4" /></Button>
+                      <div className="flex gap-2 justify-end">
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}><Eye className="h-4 w-4" /></Button>
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}><Edit className="h-4 w-4" /></Button>
+                        </motion.button>
                       </div>
                     </TableCell>
                   </motion.tr>
@@ -381,6 +390,23 @@ export function MessageConfiguration() {
           </div>
         </CardContent>
       </Card>
+    </motion.div>
     </div>
+  );
+}
+
+function StatCard({ title, value, icon, color, textColor }: any) {
+  return (
+    <motion.div whileHover={{ y: -6, scale: 1.02 }} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+      <Card className={`border-l-4 ${color} rounded-[1.5rem] bg-gradient-to-br from-white to-[#f8fdf3] shadow-2xl shadow-[#a4c692]/20 border-[#d9ead6]`}>
+        <CardContent className="p-6 flex justify-between items-center gap-4">
+          <div>
+            <p className="text-xs font-bold text-[#7b8f6f] uppercase">{title}</p>
+            <p className={`text-2xl font-bold ${textColor}`}>{value}</p>
+          </div>
+          <div className="p-3 rounded-2xl bg-[#eff7ec] text-[#5d8044] shadow-sm">{icon}</div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
