@@ -1,0 +1,15 @@
+{
+  "name": "anialerto-sms-worker",
+  "version": "1.0.0",
+  "description": "AniAlerto SMS Worker for SMS800C GSM Modem",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "mysql2": "^3.0.0",
+    "serialport": "^12.0.0"
+  }
+}

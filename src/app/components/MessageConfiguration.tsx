@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Trash2, Send, Eye, ChevronDown, ChevronUp, BarChart3, Search, MessageSquare, CheckCircle, Hash } from "lucide-react";
+import { Plus, Edit, Trash2, Clock, Eye, ChevronDown, ChevronUp, BarChart3, Search, MessageSquare, CheckCircle, Hash, Layers } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -21,10 +21,20 @@ interface MessageTemplate {
   active: boolean | number;
   expected_responses?: string[];
   trigger_type?: string;
+  batch_id?: string | null;
+  batch_name?: string | null;
+  scheduled_time?: string;
+}
+
+interface Batch {
+  id: string;
+  name: string;
+  status: string;
 }
 
 export function MessageConfiguration() {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -33,15 +43,20 @@ export function MessageConfiguration() {
   const [searchQuery, setSearchQuery] = useState("");
   
   const API_URL = "http://localhost/anialerto-backend/src/message_config.php";
+  const BATCHES_URL = "http://localhost/anialerto-backend/src/batches.php";
 
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     name: "",
     category: "General" as MessageTemplate["category"],
     message: "",
     days_after_planting: 0,
     active: true,
     expected_responses: [] as string[],
-  });
+    batch_id: "" as string,
+    scheduled_time: "06:00",
+  };
+
+  const [formData, setFormData] = useState(emptyForm);
 
   const fetchTemplates = async () => {
     try {
@@ -53,8 +68,19 @@ export function MessageConfiguration() {
     }
   };
 
+  const fetchBatches = async () => {
+    try {
+      const res = await fetch(BATCHES_URL);
+      const data = await res.json();
+      setBatches(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Error fetching batches:", e);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
+    fetchBatches();
   }, []);
 
   const categories: MessageTemplate["category"][] = ["Irrigation", "Fertilization", "Pest Control", "Harvest", "General"];
@@ -69,7 +95,7 @@ export function MessageConfiguration() {
 
   const handleCreateTemplate = () => {
     setEditingTemplate(null);
-    setFormData({ name: "", category: "General", message: "", days_after_planting: 0, active: true, expected_responses: [] });
+    setFormData(emptyForm);
     setIsDialogOpen(true);
   };
 
@@ -82,6 +108,8 @@ export function MessageConfiguration() {
       days_after_planting: template.days_after_planting,
       active: !!template.active,
       expected_responses: template.expected_responses || [],
+      batch_id: template.batch_id ?? "",
+      scheduled_time: template.scheduled_time ?? "06:00",
     });
     setIsDialogOpen(true);
   };
@@ -121,7 +149,14 @@ export function MessageConfiguration() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { ...formData, id: editingTemplate?.id, active: formData.active ? 1 : 0, trigger_type: "days_after_planting" };
+    const payload = {
+      ...formData,
+      id: editingTemplate?.id,
+      active: formData.active ? 1 : 0,
+      trigger_type: "days_after_planting",
+      batch_id: formData.batch_id || null,
+      scheduled_time: formData.scheduled_time || "06:00",
+    };
     await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -212,6 +247,48 @@ export function MessageConfiguration() {
               <div className="space-y-2">
                 <Label htmlFor="days_after_planting">Days After Planting</Label>
                 <Input id="days_after_planting" type="number" min="0" placeholder="e.g., 7" value={formData.days_after_planting} onChange={(e) => setFormData({ ...formData, days_after_planting: parseInt(e.target.value) })} required />
+              </div>
+
+              {/* Batch Selector */}
+              <div className="space-y-2">
+                <Label htmlFor="batch_id" className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-[#5d8044]" />
+                  Target Batch
+                  <span className="text-xs font-normal text-[#7b8f6f]">(leave blank to apply to ALL batches)</span>
+                </Label>
+                <select
+                  id="batch_id"
+                  className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6] text-[#3d5a36]"
+                  value={formData.batch_id}
+                  onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+                >
+                  <option value="">— All Batches —</option>
+                  {batches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}{b.status !== 'Active' ? ` (${b.status})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Schedule Time Picker */}
+              <div className="space-y-2">
+                <Label htmlFor="scheduled_time" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-[#5d8044]" />
+                  Scheduled Send Time
+                  <span className="text-xs font-normal text-[#7b8f6f]">(the hour the scheduler will send this message)</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="scheduled_time"
+                    type="time"
+                    value={formData.scheduled_time}
+                    onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                    className="border-[#d9ead6] text-[#3d5a36]"
+                    required
+                  />
+                  <p className="text-xs text-[#7b8f6f] mt-1">
+                    ⏰ The scheduler must be triggered at this hour for the SMS to be sent.
+                  </p>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Expected Response Commands</Label>
@@ -339,12 +416,13 @@ export function MessageConfiguration() {
             <Table>
               <TableHeader className="bg-[#f3faf2]">
                 <TableRow>
-                  <TableHead>ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Target Batch</TableHead>
+                  <TableHead>Send Time</TableHead>
                   <TableHead>Message Preview</TableHead>
                   <TableHead>Expected Responses</TableHead>
-                  <TableHead>Days After Planting</TableHead>
+                  <TableHead>Day</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -358,9 +436,19 @@ export function MessageConfiguration() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: index * 0.04 }}
                   >
-                    <TableCell className="font-mono text-xs text-[#556d4a]">{template.id}</TableCell>
                     <TableCell className="font-medium text-[#3d5a36]">{template.name}</TableCell>
                     <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>{template.category}</span></TableCell>
+                    <TableCell>
+                      {template.batch_name
+                        ? <Badge variant="outline" className="border-[#d9ead6] text-[#3d5a36] flex items-center gap-1 w-fit"><Layers className="h-3 w-3" />{template.batch_name}</Badge>
+                        : <span className="text-xs text-[#7b8f6f] italic">All Batches</span>}
+                    </TableCell>
+                    <TableCell>
+                      <span className="flex items-center gap-1 text-sm text-[#556d4a] font-mono">
+                        <Clock className="h-3 w-3 text-[#5d8044]" />
+                        {template.scheduled_time ?? "06:00"}
+                      </span>
+                    </TableCell>
                     <TableCell className="max-w-xs"><p className="text-sm text-[#556d4a] truncate">{template.message}</p></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">

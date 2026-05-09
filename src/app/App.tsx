@@ -7,13 +7,14 @@ import { HomePage } from "./components/HomePage";
 import { AboutPage } from "./components/AboutPage";
 import { CornGuidePage } from "./components/CornGuidePage";
 import { FarmTourPage } from "./components/FarmTourPage";
-import { LoginPage } from "./components/LoginPage";
 import { Dashboard } from "./components/Dashboard";
 import { BatchManagement } from "./components/BatchManagement";
 import { WorkerManagement } from "./components/WorkerManagement";
 import { MessageConfiguration } from "./components/MessageConfiguration";
 import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
+import { CropCalendar } from "./components/CropCalendar";
+import { InboundMessages } from "./components/InboundMessages";
 
 interface Alert {
   alert_id: number;
@@ -23,7 +24,9 @@ interface Alert {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem("anialerto_auth") === "true";
+  });
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
@@ -39,10 +42,12 @@ export default function App() {
   }, []);
 
   const handleLogin = () => {
+    localStorage.setItem("anialerto_auth", "true");
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("anialerto_auth");
     setIsAuthenticated(false);
   };
 
@@ -50,48 +55,37 @@ export default function App() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
-        {/* Public Routes */}
-        <Route element={<PublicLayout />}>
+        {/* Public Routes — homepage is always the default landing page */}
+        <Route element={<PublicLayout onLogin={handleLogin} isAuthenticated={isAuthenticated} />}>
           <Route index element={<HomePage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="corn-guide" element={<CornGuidePage />} />
           <Route path="farm-tour" element={<FarmTourPage />} />
-          
-          {/* Login Route */}
-          <Route 
-            path="login" 
-            element={
-              isAuthenticated ? (
-                <Navigate to="/admin/dashboard" replace />
-              ) : (
-                <LoginPage onLogin={handleLogin} />
-              )
-            } 
-          />
         </Route>
 
-        {/* Admin Routes - Data is passed to Dashboard and Monitoring */}
+        {/* Admin Routes — protected, redirect to home if not authenticated */}
         <Route
           path="admin"
           element={
             isAuthenticated ? (
               <AdminLayout onLogout={handleLogout} />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/" replace />
             )
           }
         >
-          {/* We pass the 'alerts' data as props to the Dashboard */}
           <Route path="dashboard" element={<Dashboard alerts={alerts} />} />
           <Route path="batches" element={<BatchManagement />} />
           <Route path="workers" element={<WorkerManagement />} />
           <Route path="messages" element={<MessageConfiguration />} />
           <Route path="monitoring" element={<SMSMonitoring />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="calendar" element={<CropCalendar />} />
+          <Route path="responses" element={<InboundMessages />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
-        {/* Catch all - redirect to home */}
+        {/* Catch all — redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
