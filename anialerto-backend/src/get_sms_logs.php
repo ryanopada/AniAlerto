@@ -1,41 +1,53 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+header('Content-Type: application/json; charset=UTF-8');
 
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "anialerto";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-if ($conn->connect_error) {
-    die(json_encode(["error" => "Connection failed: " . $conn->connect_error]));
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
 }
 
-$sql = "SELECT id, worker_id, phone, message, direction, status, response_text, sent_at, received_at 
-        FROM sms_logs 
-        ORDER BY created_at DESC";
+require_once 'Database.php';
 
-$result = $conn->query($sql);
-$logs = [];
+$database = new Database();
+$db = $database->getConnection();
 
-if ($result && $result->num_rows > 0) {
-    while($row = $result->fetch_assoc()) {
-        $logs[] = [
-            "id" => $row['id'],
-            "worker_id" => $row['worker_id'],
-            "phone" => $row['phone'],
-            "message" => $row['message'],
-            "direction" => $row['direction'],
-            "status" => $row['status'],
-            "response_text" => $row['response_text'],
-            "sent_at" => $row['sent_at'],
-            "received_at" => $row['received_at']
-        ];
-    }
+try {
+    // INNER JOIN ensures only logs from registered, active workers are returned.
+    // Inbound phone numbers may arrive in either +639xx or 09xx format;
+    // the REPLACE() normalises both sides to the same local 09xx form for matching.
+    $stmt = $db->prepare("
+        SELECT
+            sl.id,
+            sl.worker_id,
+            w.name        AS worker_name,
+            sl.phone,
+            sl.message,
+            sl.direction,
+            sl.status,
+            sl.response_text,
+            sl.sent_at,
+            sl.received_at,
+            sl.created_at
+        FROM sms_logs sl
+        INNER JOIN workers w ON (
+            w.id = sl.worker_id
+            OR REPLACE(REPLACE(w.phone, '+63', '0'), '+', '') =
+               REPLACE(REPLACE(sl.phone,  '+63', '0'), '+', '')
+        )
+        WHERE w.status = 'Active'
+        ORDER BY sl.created_at DESC
+        LIMIT 500
+    ");
+    $stmt->execute();
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode($logs);
+
+} catch (Exception $e) {
+    echo json_encode(['error' => $e->getMessage()]);
+    http_response_code(500);
 }
-
-echo json_encode($logs);
-$conn->close();
-?>
+?>

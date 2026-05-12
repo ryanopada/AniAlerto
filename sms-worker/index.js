@@ -52,35 +52,47 @@ async function main() {
   console.log(`[Worker] Startup recovery done. Pending in queue: ${qRows[0].c}`);
   console.log('\n[AniAlerto Worker] ✅ Running!\n');
 
-  // ── SENDER LOOP ── checks sms_queue every 10 seconds ──────────────────────
-  setInterval(async () => {
+  // ── SENDER LOOP ──────────────────────────────────────────────────────────
+  // Uses recursive setTimeout (NOT setInterval) so the next send cycle only
+  // starts AFTER the current one fully completes.  setInterval would fire
+  // blindly every N ms even if the previous async run is still in progress,
+  // which can cause duplicate sms_logs rows when the modem is slow.
+  async function senderLoop() {
     if (!getConnectionStatus()) {
       console.log('[Sender] ⏸ Modem not connected, skipping...');
-      return;
-    }
-    try {
-      const count = await processBatch(BATCH_SIZE, SEND_DELAY);
-      if (count > 0) console.log(`[Sender] ✅ Sent ${count} message(s)`);
-    } catch (err) {
-      console.error('[Sender] Error:', err.message);
-    }
-  }, POLL_MS);
-
-  // ── RECEIVER LOOP ── polls for inbound SMS every 5 seconds ────────────────
-  let recvTick = 0;
-  setInterval(async () => {
-    if (!getConnectionStatus()) return;
-    try {
-      await processIncoming();
-      recvTick++;
-      // Heartbeat log every 60s so we know the receiver loop is alive when idle
-      if (recvTick % 12 === 0) {
-        console.log('[Receiver] ⏱ Polling for replies... (no new messages)');
+    } else {
+      try {
+        const count = await processBatch(BATCH_SIZE, SEND_DELAY);
+        if (count > 0) console.log(`[Sender] ✅ Sent ${count} message(s)`);
+      } catch (err) {
+        console.error('[Sender] Error:', err.message);
       }
-    } catch (err) {
-      console.error('[Receiver] Error:', err.message);
     }
-  }, RECV_MS);
+    setTimeout(senderLoop, POLL_MS); // schedule NEXT run only after this one ends
+  }
+  setTimeout(senderLoop, POLL_MS);  // initial delay before first send attempt
+
+  // ── RECEIVER LOOP ─────────────────────────────────────────────────────────
+  // Same pattern: recursive setTimeout so concurrent polls are impossible.
+  // setInterval would overlap when modem AT+CMGL takes longer than RECV_MS,
+  // causing the same physical SMS to be read and inserted more than once.
+  let recvTick = 0;
+  async function receiverLoop() {
+    if (getConnectionStatus()) {
+      try {
+        await processIncoming();
+        recvTick++;
+        // Heartbeat log every 60 s so we know receiver is alive when idle
+        if (recvTick % 12 === 0) {
+          console.log('[Receiver] ⏱ Polling for replies... (no new messages)');
+        }
+      } catch (err) {
+        console.error('[Receiver] Error:', err.message);
+      }
+    }
+    setTimeout(receiverLoop, RECV_MS); // schedule NEXT run only after this one ends
+  }
+  setTimeout(receiverLoop, RECV_MS);  // initial delay before first receive attempt
 }
 
 main().catch(err => {

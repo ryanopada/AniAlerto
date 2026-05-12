@@ -54,28 +54,105 @@ async function processIncoming() {
     const command = KNOWN_COMMANDS.find(c => text.startsWith(c)) || null;
 
     try {
-      // Store inbound message — use normalized phone for easy lookups
-      await db.execute(
-        `INSERT INTO inbound_messages (phone, message, command, received_at)
+      // ── Gate 1: Registered-worker check ────────────────────────────────
+      // Reject messages from any number not in the workers table.
+      // Both +639xx and 09xx variants are checked to handle modem formatting.
+      const altPhone = normalizedPhone.startsWith('+63')
+        ? '0' + normalizedPhone.slice(3)          // +639123456789 → 09123456789
+        : '+63' + normalizedPhone.slice(1);        // 09123456789  → +639123456789
+
+      const [workerRows] = await db.execute(
+        `SELECT id, name FROM workers WHERE (phone=? OR phone=?) AND status='Active' LIMIT 1`,
+        [normalizedPhone, altPhone]
+      );
+
+      if (workerRows.length === 0) {
+        console.log(`[Receiver] 🚫 Unregistered number ${normalizedPhone} — ignoring and purging from modem`);
+        await deleteSMS(sms.index).catch(() => {});
+        continue;
+      }
+
+      const workerId   = workerRows[0].id;
+      const workerName = workerRows[0].name;
+      console.log(`[Receiver] 👤 Verified worker: ${workerName} (${normalizedPhone})`);
+
+      // ── Gate 2: Deduplication guard ────────────────────────────────────
+      // If deleteSMS failed on a previous poll, the same physical SMS will
+      // appear again on AT+CMGL="ALL". This check prevents a second DB row.
+      const [existing] = await db.execute(
+        `SELECT id FROM inbound_messages
+         WHERE phone = ? AND message = ?
+           AND received_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+         LIMIT 1`,
+        [normalizedPhone, sms.text]
+      );
+
+      if (existing.length > 0) {
+        console.log(`[Receiver] ⚠️  Duplicate on modem – skipping insert, deleting from modem (${normalizedPhone})`);
+        await deleteSMS(sms.index).catch(() => {});
+        continue;
+      }
+
+      // ── Store in inbound_messages ───────────────────────────────────────
+      const [inboundResult] = await db.execute(
+        `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
          VALUES (?, ?, ?, NOW())`,
         [normalizedPhone, sms.text, command]
       );
-      console.log(`[Receiver] 📩 ${normalizedPhone}: "${sms.text}" → ${command || 'UNKNOWN'}`);
+      // INSERT IGNORE returns affectedRows=0 if the unique index blocked it
+      if (inboundResult.affectedRows === 0) {
+        console.log(`[Receiver] ⚠️  DB unique constraint caught duplicate for ${normalizedPhone}, purging from modem`);
+        await deleteSMS(sms.index).catch(() => {});
+        continue;
+      }
+      console.log(`[Receiver] 📩 ${workerName}: "${sms.text}" → ${command || 'UNKNOWN'}`);
 
-      // Update task status for DONE / DELAY responses
-      if (command === 'DONE' || command === 'DELAY') {
-        await updateTaskStatus(normalizedPhone, command);
+      // ── Mirror into sms_logs ────────────────────────────────────────────
+      await db.execute(
+        `INSERT IGNORE INTO sms_logs
+         (worker_id, phone, message, direction, status, response_text, received_at, created_at)
+         VALUES (?, ?, ?, 'Inbound', 'Received', ?, NOW(), NOW())`,
+        [workerId, normalizedPhone, sms.text, command || null]
+      );
+
+      // ── Back-fill response_text on the latest Outbound log row ──────────
+      // The outbound row is created by sender.js with response_text=NULL.
+      // We now stamp the worker's reply onto it so SMS Monitoring can show
+      // the response in the same row instead of always displaying "No Reply".
+      if (command) {
+        await db.execute(
+          `UPDATE sms_logs
+           SET response_text = ?, received_at = NOW()
+           WHERE worker_id = ?
+             AND direction  = 'Outbound'
+             AND (response_text IS NULL OR response_text = '')
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [command, workerId]
+        );
+        console.log(`[Receiver] 🔄 Outbound log updated with response: ${command}`);
       }
 
-      // Delete from modem memory so it doesn't get re-processed next poll
-      await deleteSMS(sms.index);
+      // ── Update task status for DONE / DELAY responses ───────────────────
+      if (command === 'DONE' || command === 'DELAY') {
+        await updateTaskStatus(workerId, command);
+      }
 
-      // Mark as processed
+      // ── Mark as processed (before modem delete) ─────────────────────────
       await db.execute(
-        `UPDATE inbound_messages SET processed_at=NOW()
-         WHERE phone=? ORDER BY received_at DESC LIMIT 1`,
-        [normalizedPhone]
+        `UPDATE inbound_messages SET processed_at=NOW() WHERE id=?`,
+        [inboundResult.insertId]
       );
+
+      // ── Delete from modem (isolated catch) ─────────────────────────────
+      // Kept separate: a modem failure must NOT prevent the processed_at
+      // update. The dedup guard handles the retry on the next poll.
+      try {
+        await deleteSMS(sms.index);
+      } catch (delErr) {
+        console.warn(`[Receiver] ⚠️  deleteSMS failed for index ${sms.index}: ${delErr.message} — dedup guard will handle next poll`);
+      }
+
     } catch (err) {
       console.error(`[Receiver] ❌ DB error for ${normalizedPhone}: ${err.message}`);
     }
@@ -83,26 +160,12 @@ async function processIncoming() {
 }
 
 // ─── Task Status Update ───────────────────────────────────────────────────────
+// workerId is passed directly — the caller (processIncoming) already verified
+// that this is a registered, active worker before calling this function.
 
-async function updateTaskStatus(phone, command) {
-  // FIX: Search by both +639xx and 09xx variants to be safe
-  const altPhone = phone.startsWith('+63')
-    ? '0' + phone.slice(3)   // +639123456789 → 09123456789
-    : '+63' + phone.slice(1); // 09123456789  → +639123456789
-
-  const [workers] = await db.execute(
-    `SELECT id FROM workers WHERE phone=? OR phone=? LIMIT 1`,
-    [phone, altPhone]
-  );
-
-  if (!workers.length) {
-    console.log(`[Receiver] ⚠️  No worker found for ${phone}`);
-    return;
-  }
-
-  const workerId = workers[0].id;
+async function updateTaskStatus(workerId, command) {
   const newStatus = command === 'DONE' ? 'Completed' : 'Delayed';
-  const extra = command === 'DONE' ? ', completed_at=NOW()' : '';
+  const extra     = command === 'DONE' ? ', completed_at=NOW()' : '';
 
   const [tasks] = await db.execute(
     `SELECT st.id FROM scheduled_tasks st

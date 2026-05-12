@@ -23,6 +23,24 @@ if (!$phone) {
 }
 
 try {
+    // --- Registered-worker gate ---
+    // Reject the request immediately if the phone does not belong to an Active worker.
+    $cleanPhone = preg_replace('/[^0-9+]/', '', $phone);
+    $altPhone   = strpos($cleanPhone, '+63') === 0
+        ? '0' . substr($cleanPhone, 3)
+        : (strpos($cleanPhone, '0') === 0 ? '+63' . substr($cleanPhone, 1) : $cleanPhone);
+
+    $check = $db->prepare(
+        "SELECT id FROM workers WHERE (phone = ? OR phone = ?) AND status = 'Active' LIMIT 1"
+    );
+    $check->execute([$cleanPhone, $altPhone]);
+
+    if (!$check->fetch()) {
+        echo json_encode(['error' => 'Not a registered worker']);
+        http_response_code(404);
+        exit;
+    }
+
     // Get outbound messages (sent TO the worker)
     $outbound = $db->prepare("
         SELECT 
@@ -39,24 +57,23 @@ try {
     $outbound->execute(['phone' => $phone]);
     $outboundMessages = $outbound->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get inbound messages (received FROM the worker) 
-    // Try matching with and without +63 prefix
-    $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+    // Get inbound messages (received FROM the worker)
+    // Build phone variants to match both +639xx and 09xx formats.
+    $rawClean = preg_replace('/[^0-9]/', '', $phone);
     $variants = [$phone];
-    
-    // Generate phone number variants for matching
-    if (strpos($cleanPhone, '63') === 0) {
-        $variants[] = '+' . $cleanPhone;          // +639...
-        $variants[] = '0' . substr($cleanPhone, 2); // 09...
-        $variants[] = $cleanPhone;                  // 639...
-    } elseif (strpos($cleanPhone, '0') === 0) {
-        $variants[] = '+63' . substr($cleanPhone, 1); // +639...
-        $variants[] = '63' . substr($cleanPhone, 1);  // 639...
-        $variants[] = $cleanPhone;                     // 09...
+
+    if (strpos($rawClean, '63') === 0) {
+        $variants[] = '+' . $rawClean;
+        $variants[] = '0' . substr($rawClean, 2);
+        $variants[] = $rawClean;
+    } elseif (strpos($rawClean, '0') === 0) {
+        $variants[] = '+63' . substr($rawClean, 1);
+        $variants[] = '63' . substr($rawClean, 1);
+        $variants[] = $rawClean;
     }
-    
+
     $placeholders = implode(',', array_fill(0, count($variants), '?'));
-    
+
     $inbound = $db->prepare("
         SELECT 
             id,

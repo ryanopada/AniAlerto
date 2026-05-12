@@ -27,10 +27,11 @@ try {
             w.id AS worker_id,
             w.assignedBatch AS batch_name
         FROM inbound_messages im
-        LEFT JOIN workers w ON (
+        INNER JOIN workers w ON (
             REPLACE(REPLACE(w.phone, '+63', '0'), '+', '') = REPLACE(REPLACE(im.phone, '+63', '0'), '+', '')
             OR w.phone = im.phone
         )
+        WHERE w.status = 'Active'
         ORDER BY im.received_at DESC
         LIMIT 200
     ");
@@ -48,12 +49,18 @@ try {
     ];
 
     foreach ($messages as $m) {
-        $cmd = strtoupper(trim($m['command'] ?? $m['message'] ?? ''));
-        if ($cmd === 'DONE') $summary['done']++;
-        elseif ($cmd === 'DELAY') $summary['delay']++;
-        elseif ($cmd === 'HELP') $summary['help']++;
+        $cmd = strtoupper(trim($m['command'] ?? ''));
+        // Fall back to the message text if command column is empty
+        if (!$cmd) {
+            $words = preg_split('/\s+/', strtoupper(trim($m['message'] ?? '')));
+            $cmd = $words[0] ?? '';
+        }
+
+        if ($cmd === 'DONE')        $summary['done']++;
+        elseif ($cmd === 'DELAY')   $summary['delay']++;
+        elseif ($cmd === 'HELP')    $summary['help']++;
         elseif (!$m['processed_at']) $summary['unprocessed']++;
-        else $summary['other']++;
+        else                         $summary['other']++;
     }
 
     echo json_encode([
