@@ -46,11 +46,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- If worker_id not provided, look it up by phone ---
     if (!$worker_id) {
+        $digits = preg_replace('/\D+/', '', $cleanPhone);
+        $key10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
         $altPhone = strpos($cleanPhone, '+63') === 0
             ? '0' . substr($cleanPhone, 3)
-            : '+63' . substr($cleanPhone, 1);
-        $wStmt = $conn->prepare("SELECT id FROM workers WHERE (phone=? OR phone=?) AND status='Active' LIMIT 1");
-        $wStmt->bind_param("ss", $cleanPhone, $altPhone);
+            : (strpos($cleanPhone, '0') === 0 ? '+63' . substr($cleanPhone, 1) : $cleanPhone);
+        $wStmt = $conn->prepare(
+            "SELECT id FROM workers
+             WHERE status='Active'
+               AND (
+                 phone=? OR phone=?
+                 OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10)=?
+               )
+             LIMIT 1"
+        );
+        $wStmt->bind_param("sss", $cleanPhone, $altPhone, $key10);
         $wStmt->execute();
         $wRes = $wStmt->get_result();
         if ($wRow = $wRes->fetch_assoc()) {
@@ -91,6 +101,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $logsOk = $stmt2->execute();
     $stmt2->close();
 
+    // Backfill most recent outbound row so SMS Monitoring can show a response
+    $responseText = $command ?: $message;
+    $digits = preg_replace('/\D+/', '', $cleanPhone);
+    $key10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+    $stmt3 = $conn->prepare(
+        "UPDATE sms_logs
+         SET response_text = ?, received_at = NOW()
+         WHERE direction = 'Outbound'
+           AND (response_text IS NULL OR response_text = '')
+           AND (
+             worker_id = ?
+             OR phone = ?
+             OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?
+           )
+         ORDER BY created_at DESC
+         LIMIT 1"
+    );
+    $stmt3->bind_param("siss", $responseText, $worker_id, $cleanPhone, $key10);
+    $stmt3->execute();
+    $stmt3->close();
+
     if ($inboundOk && $logsOk) {
         echo json_encode(["success" => true, "message" => "Inbound SMS recorded", "command" => $command]);
     } else {
@@ -102,4 +133,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $conn->close();
-?>
+?>

@@ -13,6 +13,8 @@ interface SMSLog {
   id: string;
   worker_id: string;
   worker_name: string | null;
+  workerName?: string | null;
+  worker?: string | null;
   phone: string;
   message: string;
   direction: "Outbound" | "Inbound";
@@ -58,10 +60,14 @@ export function SMSMonitoring() {
     return { variant: "outline" as const, icon: MessageSquare, color: "text-gray-400" };
   };
 
+  const getWorkerName = (log: SMSLog) => {
+    return log.worker_name || log.workerName || log.worker || "Unknown Worker";
+  };
+
   const filteredLogs = smsLogs.filter(log => {
     const normalizedSearch = searchTerm.toLowerCase();
     const matchesSearch = log.phone.includes(searchTerm) ||
-                          (log.worker_name || "").toLowerCase().includes(normalizedSearch) ||
+                          getWorkerName(log).toLowerCase().includes(normalizedSearch) ||
                           log.message.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === "All" || log.response_text?.toUpperCase() === filterStatus;
     return matchesSearch && matchesFilter;
@@ -251,8 +257,15 @@ export function SMSMonitoring() {
                         {log.direction}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-medium text-sm text-[#3d5a36]">{log.worker_name || 'Unknown Worker'}</TableCell>
-                    <TableCell className="font-mono text-xs text-[#556d4a]">{log.phone}</TableCell>
+                    <TableCell className="font-medium text-sm text-[#3d5a36]">{getWorkerName(log)}</TableCell>
+                    <TableCell className="font-mono text-xs text-[#556d4a]">
+                      {log.phone}
+                      {log.direction === "Inbound" && (
+                        <span className="ml-1 font-sans text-[11px] text-[#7b8f6f]">
+                          ({getWorkerName(log)})
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm truncate max-w-[200px] text-[#556d4a]">{log.message}</TableCell>
                     <TableCell className="text-xs text-[#7b8f6f]">{log.sent_at || '-'}</TableCell>
                     <TableCell>

@@ -11,6 +11,19 @@ function isShortCode(phone) {
   return /^[\dA-Fa-f@]{4,20}$/.test(phone) && !/^\+/.test(phone) && !/^09\d{9}$/.test(phone);
 }
 
+function phoneDigits(raw) {
+  return String(raw || '').replace(/\D/g, '');
+}
+
+function phoneKey(raw) {
+  return phoneDigits(raw).slice(-10);
+}
+
+function phoneVariants(raw) {
+  const key = phoneKey(raw);
+  return key ? [`+63${key}`, `0${key}`] : [];
+}
+
 // ─── Phone Normalization ──────────────────────────────────────────────────────
 // FIX: The modem may deliver phone numbers in different formats:
 //   "09123456789"       (local)
@@ -21,14 +34,16 @@ function isShortCode(phone) {
 
 function normalizePhone(raw) {
   // Remove spaces, dashes, parentheses
-  let phone = raw.replace(/[\s\-().]/g, '');
+  const key = phoneKey(raw);
 
   // Convert local Philippine format 09xxxxxxxxx → +639xxxxxxxxx
-  if (/^09\d{9}$/.test(phone)) {
-    phone = '+63' + phone.slice(1);
-  }
+  if (key) return `+63${key}`;
 
-  return phone;
+  return String(raw || '').replace(/[\s\-().]/g, '');
+}
+
+function phoneMatchExpr(columnName) {
+  return `RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(${columnName}, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10)`;
 }
 
 // ─── Main Polling Handler ─────────────────────────────────────────────────────
@@ -57,13 +72,25 @@ async function processIncoming() {
       // ── Gate 1: Registered-worker check ────────────────────────────────
       // Reject messages from any number not in the workers table.
       // Both +639xx and 09xx variants are checked to handle modem formatting.
-      const altPhone = normalizedPhone.startsWith('+63')
+      const variants = phoneVariants(normalizedPhone);
+      const altPhone = variants[1] || normalizedPhone;
+      const key = phoneKey(normalizedPhone);
+      /* unused old exact-format lookup:
+      const oldAltPhone = normalizedPhone.startsWith('+63')
         ? '0' + normalizedPhone.slice(3)          // +639123456789 → 09123456789
         : '+63' + normalizedPhone.slice(1);        // 09123456789  → +639123456789
 
+      */
       const [workerRows] = await db.execute(
-        `SELECT id, name FROM workers WHERE (phone=? OR phone=?) AND status='Active' LIMIT 1`,
-        [normalizedPhone, altPhone]
+        `SELECT id, name
+         FROM workers
+         WHERE status='Active'
+           AND (
+             phone = ? OR phone = ?
+             OR ${phoneMatchExpr('phone')} = ?
+           )
+         LIMIT 1`,
+        [normalizedPhone, altPhone, key]
       );
 
       if (workerRows.length === 0) {
@@ -81,10 +108,10 @@ async function processIncoming() {
       // appear again on AT+CMGL="ALL". This check prevents a second DB row.
       const [existing] = await db.execute(
         `SELECT id FROM inbound_messages
-         WHERE (phone = ? OR phone = ?) AND message = ?
+         WHERE (${phoneMatchExpr('phone')} = ? OR phone = ? OR phone = ?) AND message = ?
            AND received_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)
          LIMIT 1`,
-        [normalizedPhone, altPhone, sms.text]
+        [key, normalizedPhone, altPhone, sms.text]
       );
 
       if (existing.length > 0) {
@@ -119,19 +146,25 @@ async function processIncoming() {
       // The outbound row is created by sender.js with response_text=NULL.
       // We now stamp the worker's reply onto it so SMS Monitoring can show
       // the response in the same row instead of always displaying "No Reply".
-      if (command) {
+      {
+        const responseText = command || sms.text.trim();
         const [updateResult] = await db.execute(
           `UPDATE sms_logs
            SET response_text = ?, received_at = NOW()
-           WHERE (worker_id = ? OR phone = ? OR phone = ?)
-             AND direction  = 'Outbound'
+           WHERE direction = 'Outbound'
              AND (response_text IS NULL OR response_text = '')
+             AND (
+               worker_id = ?
+               OR phone = ?
+               OR phone = ?
+               OR ${phoneMatchExpr('phone')} = ?
+             )
            ORDER BY created_at DESC
            LIMIT 1`,
-          [command, workerId, normalizedPhone, altPhone]
+          [responseText, workerId, normalizedPhone, altPhone, key]
         );
         if (updateResult.affectedRows > 0) {
-          console.log(`[Receiver] Outbound log updated with response: ${command}`);
+          console.log(`[Receiver] Outbound log updated with response: ${responseText}`);
         } else {
           console.log(`[Receiver] No open outbound log found for ${workerName}; inbound reply was still logged`);
         }
