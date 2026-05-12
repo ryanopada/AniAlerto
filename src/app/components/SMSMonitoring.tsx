@@ -4,17 +4,15 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
-import { MessageSquare, CheckCircle, Clock, AlertCircle, Search, Plus, Edit, Trash2, ChevronDown, ChevronUp, BarChart3, RefreshCw } from "lucide-react";
+import { MessageSquare, CheckCircle, Clock, AlertCircle, Search, ChevronDown, ChevronUp, BarChart3, RefreshCw } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { motion } from "motion/react";
 
 interface SMSLog {
   id: string;
   worker_id: string;
+  worker_name: string | null;
   phone: string;
   message: string;
   direction: "Outbound" | "Inbound";
@@ -24,26 +22,12 @@ interface SMSLog {
   received_at: string | null;
 }
 
-interface CommandResponse {
-  id: string;
-  command: string;
-  description: string;
-  color: string;
-  action: string;
-}
-
 export function SMSMonitoring() {
   const [smsLogs, setSmsLogs] = useState<SMSLog[]>([]);
   const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [loading, setLoading] = useState(false);
-  
-  const [commandResponses, setCommandResponses] = useState<CommandResponse[]>([
-    { id: "CMD001", command: "DONE", description: "Task completed", color: "green", action: "Complete task" },
-    { id: "CMD002", command: "DELAY", description: "Task delayed", color: "yellow", action: "Flag follow-up" },
-    { id: "CMD003", command: "HELP", description: "Worker needs help", color: "red", action: "Send support" }
-  ]);
 
   const API_URL = "http://localhost/anialerto-backend/src/get_sms_logs.php";
 
@@ -75,7 +59,9 @@ export function SMSMonitoring() {
   };
 
   const filteredLogs = smsLogs.filter(log => {
-    const matchesSearch = log.phone.includes(searchTerm) || 
+    const normalizedSearch = searchTerm.toLowerCase();
+    const matchesSearch = log.phone.includes(searchTerm) ||
+                          (log.worker_name || "").toLowerCase().includes(normalizedSearch) ||
                           log.message.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === "All" || log.response_text?.toUpperCase() === filterStatus;
     return matchesSearch && matchesFilter;
@@ -225,7 +211,7 @@ export function SMSMonitoring() {
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full sm:w-auto">
               <div className="relative w-full sm:w-[250px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7b8f6f]" />
-                <Input placeholder="Search phone or message..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <Input placeholder="Search worker, phone, or message..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
               <select className="border rounded-xl p-3 text-sm bg-white shadow-sm border-[#d9ead6]" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                 <option value="All">All Responses</option>
@@ -240,6 +226,7 @@ export function SMSMonitoring() {
             <TableHeader>
               <TableRow>
                 <TableHead>Type</TableHead>
+                <TableHead>Worker</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead className="w-[30%]">Message</TableHead>
                 <TableHead>Sent At</TableHead>
@@ -264,6 +251,7 @@ export function SMSMonitoring() {
                         {log.direction}
                       </Badge>
                     </TableCell>
+                    <TableCell className="font-medium text-sm text-[#3d5a36]">{log.worker_name || 'Unknown Worker'}</TableCell>
                     <TableCell className="font-mono text-xs text-[#556d4a]">{log.phone}</TableCell>
                     <TableCell className="text-sm truncate max-w-[200px] text-[#556d4a]">{log.message}</TableCell>
                     <TableCell className="text-xs text-[#7b8f6f]">{log.sent_at || '-'}</TableCell>

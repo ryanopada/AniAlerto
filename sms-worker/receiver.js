@@ -81,10 +81,10 @@ async function processIncoming() {
       // appear again on AT+CMGL="ALL". This check prevents a second DB row.
       const [existing] = await db.execute(
         `SELECT id FROM inbound_messages
-         WHERE phone = ? AND message = ?
+         WHERE (phone = ? OR phone = ?) AND message = ?
            AND received_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)
          LIMIT 1`,
-        [normalizedPhone, sms.text]
+        [normalizedPhone, altPhone, sms.text]
       );
 
       if (existing.length > 0) {
@@ -120,17 +120,21 @@ async function processIncoming() {
       // We now stamp the worker's reply onto it so SMS Monitoring can show
       // the response in the same row instead of always displaying "No Reply".
       if (command) {
-        await db.execute(
+        const [updateResult] = await db.execute(
           `UPDATE sms_logs
            SET response_text = ?, received_at = NOW()
-           WHERE worker_id = ?
+           WHERE (worker_id = ? OR phone = ? OR phone = ?)
              AND direction  = 'Outbound'
              AND (response_text IS NULL OR response_text = '')
            ORDER BY created_at DESC
            LIMIT 1`,
-          [command, workerId]
+          [command, workerId, normalizedPhone, altPhone]
         );
-        console.log(`[Receiver] 🔄 Outbound log updated with response: ${command}`);
+        if (updateResult.affectedRows > 0) {
+          console.log(`[Receiver] Outbound log updated with response: ${command}`);
+        } else {
+          console.log(`[Receiver] No open outbound log found for ${workerName}; inbound reply was still logged`);
+        }
       }
 
       // ── Update task status for DONE / DELAY responses ───────────────────

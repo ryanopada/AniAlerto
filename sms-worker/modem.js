@@ -157,8 +157,10 @@ async function initModem() {
   const r3b = await enqueueCommand(() => sendCommand('AT+CPMS?', 3000, 'ok'));
   console.log('[Modem] CPMS status:', r3b.replace(/\r?\n/g, ' ').trim());
 
-  // CNMI=2,2: store new SMS to preferred receive memory (SM) and notify with +CMTI
-  const r4 = await enqueueCommand(() => sendCommand('AT+CNMI=2,2,0,0,0', 3000, 'ok'));
+  // Store new SMS in memory and notify with +CMTI.
+  // CNMI=2,2 routes many modems' incoming SMS directly to serial as +CMT
+  // instead of storing it, so the polling loop's AT+CMGL never sees replies.
+  const r4 = await enqueueCommand(() => sendCommand('AT+CNMI=2,1,0,0,0', 3000, 'ok'));
   console.log('[Modem] CNMI (receive mode):', r4.includes('OK') ? 'OK' : r4);
 
   console.log('[Modem] ✅ Initialized. Ready to send and receive.');

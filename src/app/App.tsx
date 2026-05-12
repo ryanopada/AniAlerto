@@ -14,7 +14,6 @@ import { MessageConfiguration } from "./components/MessageConfiguration";
 import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
 import { CropCalendar } from "./components/CropCalendar";
-import { InboundMessages } from "./components/InboundMessages";
 
 interface Alert {
   alert_id: number;
@@ -81,7 +80,7 @@ export default function App() {
           <Route path="monitoring" element={<SMSMonitoring />} />
           <Route path="reports" element={<Reports />} />
           <Route path="calendar" element={<CropCalendar />} />
-          <Route path="responses" element={<InboundMessages />} />
+          <Route path="responses" element={<Navigate to="../monitoring" replace />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

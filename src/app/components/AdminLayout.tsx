@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { Sprout, LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Calendar, Inbox } from "lucide-react";
+import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Calendar } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 
@@ -24,7 +24,6 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
     { path: "/admin/workers", icon: Users, label: "Workers" },
     { path: "/admin/messages", icon: MessageSquare, label: "Messages" },
     { path: "/admin/monitoring", icon: Activity, label: "SMS Monitoring" },
-    { path: "/admin/responses", icon: Inbox, label: "Worker Responses" },
     { path: "/admin/reports", icon: FileText, label: "Reports" },
   ];
 
