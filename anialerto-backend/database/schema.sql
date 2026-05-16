@@ -161,7 +161,7 @@ CREATE TABLE `message_templates` (
   `days_after_planting` int(11) DEFAULT NULL,
   `interval_days` int(11) DEFAULT NULL,
   `event_keyword` varchar(30) DEFAULT NULL,
-  `expected_responses` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`expected_responses`)),
+  `expected_responses` JSON DEFAULT NULL,
   `active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL,
   `updated_at` datetime DEFAULT NULL
