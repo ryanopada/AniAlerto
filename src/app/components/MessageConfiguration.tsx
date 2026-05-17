@@ -24,6 +24,8 @@ interface MessageTemplate {
   batch_id?: string | null;
   batch_name?: string | null;
   scheduled_time?: string;
+  plant_date?: string | null;
+  scheduled_send_datetime?: string | null;
 }
 
 interface Batch {
@@ -54,6 +56,8 @@ export function MessageConfiguration() {
     expected_responses: [] as string[],
     batch_id: "" as string,
     scheduled_time: "06:00",
+    plant_date: "",
+    scheduled_send_datetime: "",
   };
 
   const [formData, setFormData] = useState(emptyForm);
@@ -86,11 +90,10 @@ export function MessageConfiguration() {
   const categories: MessageTemplate["category"][] = ["Irrigation", "Fertilization", "Pest Control", "Harvest", "General"];
   
   const availableResponses = [
-    { value: "DONE", label: "DONE - Task completed", color: "text-green-600" },
-    { value: "DELAY", label: "DELAY - Task delayed", color: "text-yellow-600" },
-    { value: "HELP", label: "HELP - Need assistance", color: "text-red-600" },
-    { value: "CANCEL", label: "CANCEL - Task cancelled", color: "text-gray-600" },
-    { value: "OK", label: "OK - Acknowledged", color: "text-blue-600" },
+    { value: "DONE",  label: "DONE – Task completed",   color: "text-green-600"  },
+    { value: "DELAY", label: "DELAY – Task delayed",     color: "text-yellow-600" },
+    { value: "HELP",  label: "HELP – Need assistance",   color: "text-red-600"    },
+    { value: "PEST",  label: "PEST – Pest report",       color: "text-orange-600" },
   ];
 
   const handleCreateTemplate = () => {
@@ -110,9 +113,25 @@ export function MessageConfiguration() {
       expected_responses: template.expected_responses || [],
       batch_id: template.batch_id ?? "",
       scheduled_time: template.scheduled_time ?? "06:00",
+      plant_date: template.plant_date ?? "",
+      scheduled_send_datetime: template.scheduled_send_datetime ?? "",
     });
     setIsDialogOpen(true);
   };
+
+  // Auto-calculate days between plant_date and scheduled_send_datetime
+  const calcDaysAfterPlanting = (plantDate: string, sendDatetime: string): number | null => {
+    if (!plantDate || !sendDatetime) return null;
+    const p = new Date(plantDate);
+    const s = new Date(sendDatetime);
+    if (isNaN(p.getTime()) || isNaN(s.getTime())) return null;
+    return Math.round((s.getTime() - p.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const daysCalc = calcDaysAfterPlanting(formData.plant_date, formData.scheduled_send_datetime);
+  const dateError = daysCalc !== null && daysCalc < 0
+    ? "Scheduled date cannot be earlier than the plant date."
+    : null;
 
   const handleViewTemplate = (template: MessageTemplate) => {
     setViewingTemplate(template);
@@ -149,13 +168,20 @@ export function MessageConfiguration() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (dateError) return;
+    const computedDays = daysCalc ?? formData.days_after_planting;
     const payload = {
       ...formData,
       id: editingTemplate?.id,
       active: formData.active ? 1 : 0,
       trigger_type: "days_after_planting",
       batch_id: formData.batch_id || null,
-      scheduled_time: formData.scheduled_time || "06:00",
+      scheduled_time: formData.scheduled_send_datetime
+        ? formData.scheduled_send_datetime.slice(11, 16) // extract HH:MM
+        : formData.scheduled_time || "06:00",
+      days_after_planting: computedDays,
+      plant_date: formData.plant_date || null,
+      scheduled_send_datetime: formData.scheduled_send_datetime || null,
     };
     await fetch(API_URL, {
       method: "POST",
@@ -183,12 +209,11 @@ export function MessageConfiguration() {
 
   const getResponseColor = (response: string) => {
     switch (response) {
-      case "DONE": return "bg-green-100 text-green-800 border-green-300";
+      case "DONE":  return "bg-green-100 text-green-800 border-green-300";
       case "DELAY": return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "HELP": return "bg-red-100 text-red-800 border-red-300";
-      case "CANCEL": return "bg-gray-100 text-gray-800 border-gray-300";
-      case "OK": return "bg-blue-100 text-blue-800 border-blue-300";
-      default: return "bg-gray-100 text-gray-800 border-gray-300";
+      case "HELP":  return "bg-red-100 text-red-800 border-red-300";
+      case "PEST":  return "bg-orange-100 text-orange-800 border-orange-300";
+      default:      return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
 
@@ -244,9 +269,50 @@ export function MessageConfiguration() {
                 <Textarea id="message" placeholder="Enter the SMS message content..." value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} required />
                 <p className="text-xs text-gray-500">Character count: {formData.message.length} (SMS limit: 160 characters per message)</p>
               </div>
+              {/* Plant Date */}
               <div className="space-y-2">
-                <Label htmlFor="days_after_planting">Days After Planting</Label>
-                <Input id="days_after_planting" type="number" min="0" placeholder="e.g., 7" value={formData.days_after_planting} onChange={(e) => setFormData({ ...formData, days_after_planting: parseInt(e.target.value) })} required />
+                <Label htmlFor="plant_date" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-[#5d8044]" />
+                  Plant Date
+                </Label>
+                <Input
+                  id="plant_date"
+                  type="date"
+                  value={formData.plant_date}
+                  onChange={(e) => {
+                    const updated = { ...formData, plant_date: e.target.value };
+                    const d = calcDaysAfterPlanting(e.target.value, formData.scheduled_send_datetime);
+                    setFormData({ ...updated, days_after_planting: d ?? formData.days_after_planting });
+                  }}
+                  className="border-[#d9ead6] text-[#3d5a36]"
+                  required
+                />
+              </div>
+
+              {/* Scheduled Send Date & Time */}
+              <div className="space-y-2">
+                <Label htmlFor="scheduled_send_datetime" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-[#5d8044]" />
+                  Scheduled Send Date and Time
+                </Label>
+                <Input
+                  id="scheduled_send_datetime"
+                  type="datetime-local"
+                  value={formData.scheduled_send_datetime}
+                  onChange={(e) => {
+                    const updated = { ...formData, scheduled_send_datetime: e.target.value };
+                    const d = calcDaysAfterPlanting(formData.plant_date, e.target.value);
+                    setFormData({ ...updated, days_after_planting: d ?? formData.days_after_planting });
+                  }}
+                  className="border-[#d9ead6] text-[#3d5a36]"
+                  required
+                />
+                {/* Live feedback */}
+                {dateError ? (
+                  <p className="text-xs text-red-500 font-medium">⚠️ {dateError}</p>
+                ) : daysCalc !== null ? (
+                  <p className="text-xs text-[#5d8044] font-medium">✅ {daysCalc} day{daysCalc !== 1 ? 's' : ''} after planting</p>
+                ) : null}
               </div>
 
               {/* Batch Selector */}
@@ -267,28 +333,6 @@ export function MessageConfiguration() {
                     <option key={b.id} value={b.id}>{b.name}{b.status !== 'Active' ? ` (${b.status})` : ''}</option>
                   ))}
                 </select>
-              </div>
-
-              {/* Schedule Time Picker */}
-              <div className="space-y-2">
-                <Label htmlFor="scheduled_time" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-[#5d8044]" />
-                  Scheduled Send Time
-                  <span className="text-xs font-normal text-[#7b8f6f]">(the hour the scheduler will send this message)</span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="scheduled_time"
-                    type="time"
-                    value={formData.scheduled_time}
-                    onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-                    className="border-[#d9ead6] text-[#3d5a36]"
-                    required
-                  />
-                  <p className="text-xs text-[#7b8f6f] mt-1">
-                    ⏰ The scheduler must be triggered at this hour for the SMS to be sent.
-                  </p>
-                </div>
               </div>
               <div className="space-y-2">
                 <Label>Expected Response Commands</Label>

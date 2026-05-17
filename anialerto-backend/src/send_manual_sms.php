@@ -90,6 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         foreach ($workers as $w) {
             $personalMsg = str_replace('{worker_name}', $w['name'], $message);
+            // Append bilingual reply guide so workers always see valid response options
+            $personalMsg .= "\n\nReply only: DONE, DELAY, HELP, PEST\nSumagot lamang ng: DONE, DELAY, HELP, PEST";
 
             $qStmt = $db->prepare("
                 INSERT INTO sms_queue (task_id, worker_id, phone, message, status, created_at) 

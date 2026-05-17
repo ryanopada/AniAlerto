@@ -16,9 +16,14 @@ import { Reports } from "./components/Reports";
 import { CropCalendar } from "./components/CropCalendar";
 
 interface Alert {
-  alert_id: number;
-  alert_level: string;
-  alert_message: string;
+  id: number;
+  type: string;
+  worker_id: number | null;
+  worker_name: string | null;
+  phone: string | null;
+  task_id: number | null;
+  message: string | null;
+  is_read: number;
   created_at: string;
 }
 
@@ -27,17 +32,24 @@ export default function App() {
     return localStorage.getItem("anialerto_auth") === "true";
   });
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchAlerts = async () => {
+    try {
+      const res = await fetch('http://localhost/anialerto-backend/src/get_alerts.php');
+      if (!res.ok) throw new Error(`Alerts failed: ${res.status}`);
+      const data = await res.json();
+      setAlerts(Array.isArray(data.alerts) ? data.alerts : []);
+      setUnreadCount(data.unread_count ?? 0);
+    } catch (e) {
+      console.error('Backend connection error:', e);
+    }
+  };
 
   useEffect(() => {
-    fetch('http://localhost/anialerto-backend/src/get_alerts.php')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Alerts request failed with ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => setAlerts(Array.isArray(data) ? data : []))
-      .catch((error) => console.error('Backend connection error:', error));
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogin = () => {
@@ -67,13 +79,13 @@ export default function App() {
           path="admin"
           element={
             isAuthenticated ? (
-              <AdminLayout onLogout={handleLogout} />
+              <AdminLayout onLogout={handleLogout} unreadCount={unreadCount} onAlertsRead={fetchAlerts} />
             ) : (
               <Navigate to="/" replace />
             )
           }
         >
-          <Route path="dashboard" element={<Dashboard alerts={alerts} />} />
+          <Route path="dashboard" element={<Dashboard alerts={alerts} onAlertsRead={fetchAlerts} />} />
           <Route path="batches" element={<BatchManagement />} />
           <Route path="workers" element={<WorkerManagement />} />
           <Route path="messages" element={<MessageConfiguration />} />

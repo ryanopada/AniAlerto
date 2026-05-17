@@ -3,6 +3,7 @@ const mysql = require('mysql2/promise');
 const { connectModem, initModem, getConnectionStatus } = require('./modem');
 const { setDB: setSenderDB, processBatch } = require('./sender');
 const { setDB: setReceiverDB, processIncoming } = require('./receiver');
+const { setDB: setSchedulerDB, runScheduler } = require('./scheduler');
 
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE)          || 5;
 const SEND_DELAY = parseInt(process.env.SEND_DELAY_MS)       || 3000;
@@ -38,18 +39,43 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 5: Share DB with sender and receiver
+  // Step 5: Share DB with sender, receiver, and scheduler
   setSenderDB(db);
   setReceiverDB(db);
+  setSchedulerDB(db);
 
   // Step 6: Startup cleanup — fix any rows stuck from previous crash
   await db.execute(`UPDATE sms_queue SET status='Retry' WHERE status='Sending'`);
-  // Any row that already hit max attempts (3) should be Failed, not retried forever
   await db.execute(`UPDATE sms_queue SET status='Failed' WHERE status='Retry' AND attempts >= 3`);
+  // Ensure skip_log column exists (for auto-replies that should not appear in SMS Monitoring)
+  await db.execute(`ALTER TABLE sms_queue ADD COLUMN IF NOT EXISTS skip_log TINYINT NOT NULL DEFAULT 0`);
+  // Ensure help_sessions table exists (tracks workers awaiting HELP menu reply)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS help_sessions (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      worker_id  INT,
+      phone      VARCHAR(20) NOT NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_phone (phone),
+      INDEX idx_created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
   const [qRows] = await db.execute(
     `SELECT COUNT(*) as c FROM sms_queue WHERE status IN ('Queued','Retry')`
   );
   console.log(`[Worker] Startup recovery done. Pending in queue: ${qRows[0].c}`);
+
+  // Show today's queue status breakdown to help diagnose stuck messages
+  const [todayStats] = await db.execute(`
+    SELECT status, COUNT(*) AS cnt FROM sms_queue
+    WHERE DATE(created_at) = CURDATE()
+    GROUP BY status
+  `);
+  if (todayStats.length > 0) {
+    const summary = todayStats.map(r => `${r.status}:${r.cnt}`).join(', ');
+    console.log(`[Worker] Today's SMS queue: ${summary}`);
+  }
+
   console.log('\n[AniAlerto Worker] ✅ Running!\n');
 
   // ── SENDER LOOP ──────────────────────────────────────────────────────────
@@ -93,6 +119,24 @@ async function main() {
     setTimeout(receiverLoop, RECV_MS); // schedule NEXT run only after this one ends
   }
   setTimeout(receiverLoop, RECV_MS);  // initial delay before first receive attempt
+
+  // ── SCHEDULER LOOP ───────────────────────────────────────────────────────
+  // Checks every 60 s for message templates whose scheduled_send_datetime
+  // has arrived and queues their SMS. Runs inside this worker so no external
+  // cron or Windows Task Scheduler is needed.
+  const SCHED_MS = 60_000; // check every 60 seconds
+  async function schedulerLoop() {
+    try {
+      await runScheduler();
+    } catch (err) {
+      console.error('[Scheduler] Loop error:', err.message);
+    }
+    setTimeout(schedulerLoop, SCHED_MS);
+  }
+  // Run once immediately on startup (catches any missed windows), then every 60 s
+  await runScheduler();
+  setTimeout(schedulerLoop, SCHED_MS);
+  console.log('[Scheduler] ✅ Template scheduler active (60s interval)');
 }
 
 main().catch(err => {

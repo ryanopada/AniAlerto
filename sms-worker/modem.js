@@ -170,19 +170,37 @@ function sendSMS(phone, message) {
   return enqueueCommand(async () => {
     if (!isConnected) throw new Error('Modem not connected');
 
-    // Step 1: Request SMS entry, wait for '>' prompt
-    const r1 = await sendCommand(`AT+CMGS="${phone}"`, 5000, 'prompt');
-    if (!r1.includes('>')) throw new Error('No SMS prompt. Got: ' + r1);
+    // Prefix every outgoing message so workers see "AniAlerto" as the source.
+    const body = `AniAlerto: ${message}`;
 
-    // Step 2: Send message body + Ctrl+Z (\x1A) to submit.
-    // sendCommand appends \r automatically — this is required; without \r the
-    // modem ignores \x1A and gives another '>' instead of sending.
-    // Use 'cmgs' terminator so we wait for +CMGS: and NOT for '>'
-    const r2 = await sendCommand(message + '\x1A', 15000, 'cmgs');
-    if (!r2.includes('+CMGS:')) throw new Error('Send failed: ' + r2);
-    return true;
+    let lastError;
+    try {
+      // Step 1: Request SMS entry, wait for '>' prompt
+      const r1 = await sendCommand(`AT+CMGS="${phone}"`, 5000, 'prompt');
+      if (!r1.includes('>')) throw new Error('No SMS prompt. Got: ' + r1);
+
+      // Step 2: Send body + Ctrl+Z. Use 20s timeout — +CMTI notifications from
+      // other incoming SMS can delay the +CMGS: ack by several seconds.
+      const r2 = await sendCommand(body + '\x1A', 20000, 'cmgs');
+      if (!r2.includes('+CMGS:')) throw new Error('Send failed: ' + r2);
+      return true;
+    } catch (err) {
+      lastError = err;
+    }
+
+    // ── Modem recovery after failure ────────────────────────────────────────
+    // Send ESC to cancel any pending AT+CMGS body-entry state, then wait for
+    // the modem to fully settle. Without this, the next AT+CMGL call gets a
+    // polluted buffer and returns no messages — causing workers whose replies
+    // arrived during the failed send to never be processed.
+    if (port && port.isOpen) {
+      port.write('\x1B\r');
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    throw lastError;
   });
 }
+
 
 function readAllSMS() {
   return enqueueCommand(async () => {

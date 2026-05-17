@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Layers, CheckCircle, Map, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Layers, CheckCircle, Map, Search, AlertTriangle, Loader2 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { motion } from "motion/react";
 
@@ -24,6 +24,8 @@ export function BatchManagement() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
+  const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [formData, setFormData] = useState({
@@ -69,17 +71,15 @@ export function BatchManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const payload = {
-      ...formData,
-      id: editingBatch?.id 
-    };
+
+    const payload = { ...formData, id: editingBatch?.id };
+    const method  = editingBatch ? "PUT" : "POST";
 
     try {
       const response = await fetch(API_URL, {
-        method: "POST",
+        method:  method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body:    JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -92,6 +92,25 @@ export function BatchManagement() {
       }
     } catch (error) {
       console.error("Failed to save:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingBatch) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`${API_URL}?id=${deletingBatch.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.status === "success") {
+        setBatches(prev => prev.filter(b => b.id !== deletingBatch.id));
+      } else {
+        console.error("Delete error:", data.message);
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+    } finally {
+      setDeleteLoading(false);
+      setDeletingBatch(null);
     }
   };
 
@@ -248,7 +267,7 @@ export function BatchManagement() {
                           {batch.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                           <Button variant="ghost" size="sm" onClick={() => {
                              setEditingBatch(batch);
@@ -266,6 +285,16 @@ export function BatchManagement() {
                             <Edit className="h-4 w-4 text-[#5d8044]" />
                           </Button>
                         </motion.button>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setDeletingBatch(batch)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </motion.button>
                       </TableCell>
                     </motion.tr>
                   ))
@@ -275,6 +304,49 @@ export function BatchManagement() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ── Delete confirmation dialog ─────────────────────────────────────── */}
+      <Dialog open={!!deletingBatch} onOpenChange={open => { if (!open) setDeletingBatch(null); }}>
+        <DialogContent className="rounded-[1.5rem] border border-red-200 bg-white shadow-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-700 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Delete Batch
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-gray-700">
+              Are you sure you want to permanently delete{" "}
+              <span className="font-semibold text-[#3d5a36]">{deletingBatch?.name}</span>?
+            </p>
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-1">
+              <p className="font-semibold flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> This will also:</p>
+              <p>• Unassign all workers currently in this batch</p>
+              <p>• Detach any message templates linked to this batch (they become "All Batches")</p>
+              <p>• This action cannot be undone</p>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1 border-gray-300"
+                onClick={() => setDeletingBatch(null)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</>
+                  : <><Trash2 className="h-4 w-4 mr-2" />Yes, Delete</>
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

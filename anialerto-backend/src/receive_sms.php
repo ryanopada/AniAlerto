@@ -4,22 +4,75 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
-$servername = "localhost";
-$username   = "root";
-$password   = "";
-$dbname     = "anialerto";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
-
+$conn = new mysqli("localhost", "root", "", "anialerto");
 if ($conn->connect_error) {
     echo json_encode(["error" => "Connection failed: " . $conn->connect_error]);
-    http_response_code(500);
-    exit;
+    http_response_code(500); exit;
+}
+
+// ── Valid commands (UOD removed) ──────────────────────────────────────────────
+$knownCommands = ['DONE', 'DELAY', 'HELP', 'PEST'];
+
+// ── Auto-reply messages ───────────────────────────────────────────────────────
+$autoReplies = [
+    'INVALID' => 'Invalid reply. Please reply only with DONE, DELAY, HELP, or PEST.',
+    'DONE'    => 'Task completion recorded. Thank you for updating AniAlerto.',
+    'DELAY'   => 'Delay recorded. A follow-up reminder will be sent for this task.',
+    'PEST'    => 'Pest incident recorded. Please inspect the affected area and prepare pesticide spraying if necessary.',
+    'HELP'    => [
+        'Irrigation'   => 'Irrigation Help: Check water source, irrigation path, and schedule.',
+        'Fertilization'=> 'Fertilizer Help: Apply the recommended amount evenly across the field.',
+        'Pest Control' => 'Spray Help: Wear protective equipment and apply spray evenly.',
+        'Harvest'      => 'Harvest Help: Ensure crops are mature and prepare harvesting tools.',
+        'General'      => 'Help received. Please wait for further instructions from our team.',
+    ],
+];
+
+// ── Helper: queue a reply via sms_queue ───────────────────────────────────────
+function queueSMS($conn, $phone, $message, $workerId = null) {
+    $s = $conn->prepare(
+        "INSERT INTO sms_queue (task_id, worker_id, phone, message, status, created_at)
+         VALUES (NULL, ?, ?, ?, 'Queued', NOW())"
+    );
+    $s->bind_param("iss", $workerId, $phone, $message);
+    $s->execute(); $s->close();
+}
+
+// ── Helper: create admin alert ────────────────────────────────────────────────
+function createAlert($conn, $type, $workerId, $workerName, $phone, $taskId, $message) {
+    $s = $conn->prepare(
+        "INSERT INTO alerts (type, worker_id, worker_name, phone, task_id, message, is_read, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, NOW())"
+    );
+    $s->bind_param("sissss", $type, $workerId, $workerName, $phone, $taskId, $message);
+    $s->execute(); $s->close();
+}
+
+// ── Helper: get admin phone ───────────────────────────────────────────────────
+function getAdminPhone($conn) {
+    $r = $conn->query("SELECT phone FROM admins WHERE phone IS NOT NULL AND phone != '' LIMIT 1");
+    $row = $r ? $r->fetch_assoc() : null;
+    return $row ? $row['phone'] : null;
+}
+
+// ── Helper: latest pending task for worker ────────────────────────────────────
+function getTaskContext($conn, $workerId) {
+    $s = $conn->prepare(
+        "SELECT st.id, st.batch_id, mt.category, fb.name AS batch_name
+         FROM scheduled_tasks st
+         JOIN batch_workers bw ON st.batch_id = bw.batch_id
+         LEFT JOIN message_templates mt ON st.template_id = mt.id
+         LEFT JOIN farm_batches fb ON st.batch_id = fb.id
+         WHERE bw.worker_id = ? AND st.status = 'Pending'
+         ORDER BY st.due_date DESC LIMIT 1"
+    );
+    $s->bind_param("i", $workerId);
+    $s->execute();
+    $r = $s->get_result()->fetch_assoc();
+    $s->close();
+    return $r;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,109 +80,149 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $message   = trim($_POST['message'] ?? '');
     $worker_id = isset($_POST['worker_id']) ? (int)$_POST['worker_id'] : null;
 
-    // --- Normalize phone to +639xx format ---
+    // ── Normalize phone ───────────────────────────────────────────────────────
     $cleanPhone = preg_replace('/[\s\-().]/', '', $phone);
     if (preg_match('/^09\d{9}$/', $cleanPhone)) {
         $cleanPhone = '+63' . substr($cleanPhone, 1);
     }
 
-    // --- Detect command keyword ---
-    $knownCommands = ['DONE', 'DELAY', 'HELP', 'PEST', 'UOD'];
+    // ── Detect command ────────────────────────────────────────────────────────
     $upperMsg = strtoupper(trim($message));
     $command  = null;
     foreach ($knownCommands as $cmd) {
-        if (strpos($upperMsg, $cmd) === 0) {
-            $command = $cmd;
-            break;
-        }
+        if (strpos($upperMsg, $cmd) === 0) { $command = $cmd; break; }
     }
 
-    // --- If worker_id not provided, look it up by phone ---
+    // ── Resolve worker_id if not provided ────────────────────────────────────
+    $digits = preg_replace('/\D+/', '', $cleanPhone);
+    $key10  = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+    $alt    = strpos($cleanPhone, '+63') === 0
+                ? '0' . substr($cleanPhone, 3)
+                : (strpos($cleanPhone, '0') === 0 ? '+63' . substr($cleanPhone, 1) : $cleanPhone);
+
     if (!$worker_id) {
-        $digits = preg_replace('/\D+/', '', $cleanPhone);
-        $key10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
-        $altPhone = strpos($cleanPhone, '+63') === 0
-            ? '0' . substr($cleanPhone, 3)
-            : (strpos($cleanPhone, '0') === 0 ? '+63' . substr($cleanPhone, 1) : $cleanPhone);
-        $wStmt = $conn->prepare(
-            "SELECT id FROM workers
-             WHERE status='Active'
-               AND (
-                 phone=? OR phone=?
-                 OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10)=?
-               )
+        $ws = $conn->prepare(
+            "SELECT id, name FROM workers WHERE status='Active'
+               AND (phone=? OR phone=?
+                    OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone,'+',''),' ',''),'-',''),'(',''),')',''),10)=?)
              LIMIT 1"
         );
-        $wStmt->bind_param("sss", $cleanPhone, $altPhone, $key10);
-        $wStmt->execute();
-        $wRes = $wStmt->get_result();
-        if ($wRow = $wRes->fetch_assoc()) {
-            $worker_id = (int)$wRow['id'];
-        }
-        $wStmt->close();
+        $ws->bind_param("sss", $cleanPhone, $alt, $key10);
+        $ws->execute();
+        $wr = $ws->get_result()->fetch_assoc();
+        $ws->close();
+        if ($wr) { $worker_id = (int)$wr['id']; $workerName = $wr['name']; }
     }
 
-    // --- Registered-worker gate ---
-    // Only messages from Active, registered workers are processed.
-    // Unregistered numbers are silently rejected — no data is stored.
-    $isRegistered = ($worker_id !== null);
-
-    // --- Registered-worker gate: reject unregistered numbers entirely ---
-    // Non-registered numbers are not stored anywhere in the system.
-    if (!$isRegistered) {
-        echo json_encode(["success" => false, "message" => "Unregistered number — message ignored", "registered" => false]);
-        http_response_code(403);
-        $conn->close();
-        exit;
+    // ── Reject unregistered numbers ───────────────────────────────────────────
+    if (!$worker_id) {
+        echo json_encode(["success" => false, "message" => "Unregistered number — ignored"]);
+        http_response_code(403); $conn->close(); exit;
     }
 
-    // --- Insert into inbound_messages (registered workers only) ---
-    $stmt1 = $conn->prepare(
-        "INSERT INTO inbound_messages (phone, message, command, received_at, processed_at)
-         VALUES (?, ?, ?, NOW(), NOW())"
-    );
-    $stmt1->bind_param("sss", $cleanPhone, $message, $command);
-    $inboundOk = $stmt1->execute();
-    $stmt1->close();
+    // Fetch worker name if not already set
+    if (empty($workerName)) {
+        $wn = $conn->query("SELECT name FROM workers WHERE id={$worker_id} LIMIT 1");
+        $workerName = ($wn && $r = $wn->fetch_assoc()) ? $r['name'] : 'Unknown';
+    }
 
-    // --- Insert into sms_logs ---
-    $stmt2 = $conn->prepare(
-        "INSERT INTO sms_logs (worker_id, phone, message, direction, status, response_text, received_at, created_at)
-         VALUES (?, ?, ?, 'Inbound', 'Received', ?, NOW(), NOW())"
-    );
-    $stmt2->bind_param("isss", $worker_id, $cleanPhone, $message, $command);
-    $logsOk = $stmt2->execute();
-    $stmt2->close();
+    // ── Invalid reply gate ────────────────────────────────────────────────────
+    if ($command === null) {
+        // Log for audit only
+        $s = $conn->prepare("INSERT INTO inbound_messages (phone, message, command, received_at, processed_at) VALUES (?, ?, NULL, NOW(), NOW())");
+        $s->bind_param("ss", $cleanPhone, $message); $s->execute(); $s->close();
+        // Queue invalid reply SMS
+        queueSMS($conn, $cleanPhone, $autoReplies['INVALID'], $worker_id);
+        echo json_encode(["success" => false, "message" => "Invalid command — auto-reply queued", "command" => null]);
+        $conn->close(); exit;
+    }
 
-    // Backfill most recent outbound row so SMS Monitoring can show a response
-    $responseText = $command ?: $message;
-    $digits = preg_replace('/\D+/', '', $cleanPhone);
-    $key10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
-    $stmt3 = $conn->prepare(
+    // ── Store in inbound_messages (audit only) ───────────────────────────────
+    $s = $conn->prepare("INSERT INTO inbound_messages (phone, message, command, received_at, processed_at) VALUES (?, ?, ?, NOW(), NOW())");
+    $s->bind_param("sss", $cleanPhone, $message, $command); $s->execute(); $s->close();
+
+    // ── Update the matching outbound sms_logs row in-place ────────────────────
+    // No new Inbound row — the existing outbound row is mutated to carry the reply.
+    $s = $conn->prepare(
         "UPDATE sms_logs
-         SET response_text = ?, received_at = NOW()
-         WHERE direction = 'Outbound'
-           AND (response_text IS NULL OR response_text = '')
-           AND (
-             worker_id = ?
-             OR phone = ?
-             OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?
-           )
-         ORDER BY created_at DESC
-         LIMIT 1"
+            SET response_text = ?,
+                received_at   = NOW(),
+                status        = 'Replied'
+          WHERE direction  = 'Outbound'
+            AND status    != 'Replied'
+            AND (
+              worker_id = ?
+              OR phone  = ?
+              OR phone  = ?
+              OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone,'+',''),' ',''),'-',''),'(',''),')',''),10) = ?
+            )
+          ORDER BY created_at DESC
+          LIMIT 1"
     );
-    $stmt3->bind_param("siss", $responseText, $worker_id, $cleanPhone, $key10);
-    $stmt3->execute();
-    $stmt3->close();
+    $s->bind_param("sissss", $command, $worker_id, $cleanPhone, $alt, $key10);
+    $s->execute(); $s->close();
 
-    if ($inboundOk && $logsOk) {
-        echo json_encode(["success" => true, "message" => "Inbound SMS recorded", "command" => $command]);
-    } else {
-        echo json_encode(["error" => "DATABASE_ERROR: " . $conn->error]);
-        http_response_code(500);
+    // ── Dispatch command ──────────────────────────────────────────────────────
+    $task      = getTaskContext($conn, $worker_id);
+    $taskId    = $task ? $task['id']         : null;
+    $batchId   = $task ? $task['batch_id']   : null;
+    $category  = $task ? ($task['category'] ?? 'General') : 'General';
+    $batchName = $task ? ($task['batch_name'] ?? '') : '';
+    $adminPhone = getAdminPhone($conn);
+
+    if ($command === 'DONE') {
+        if ($task) {
+            $s = $conn->prepare("UPDATE scheduled_tasks SET status='Completed', completed_at=NOW(), updated_at=NOW() WHERE id=?");
+            $s->bind_param("i", $taskId); $s->execute(); $s->close();
+        }
+        queueSMS($conn, $cleanPhone, $autoReplies['DONE'], $worker_id);
     }
-} else {
-    echo json_encode(["info" => "Send a POST request with phone and message fields."]);
+
+    elseif ($command === 'DELAY') {
+        if ($task) {
+            $s = $conn->prepare("UPDATE scheduled_tasks SET status='Delayed', updated_at=NOW() WHERE id=?");
+            $s->bind_param("i", $taskId); $s->execute(); $s->close();
+        }
+        queueSMS($conn, $cleanPhone, $autoReplies['DELAY'], $worker_id);
+
+        $urgent  = in_array($category, ['Irrigation', 'Pest Control']) ? 'URGENT: ' : '';
+        $followUp = "{$urgent}AniAlerto Reminder: You reported a delay on your {$category} task in {$batchName}. Please complete it ASAP and reply DONE when done.";
+        queueSMS($conn, $cleanPhone, $followUp, $worker_id);
+
+        if ($category === 'Harvest') {
+            $msg = "Harvest DELAY from {$workerName} ({$cleanPhone}) in {$batchName}. Task #{$taskId}. Immediate follow-up required.";
+            createAlert($conn, 'DELAY', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
+            if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto Alert: {$workerName} reported HARVEST DELAY in {$batchName}. Task #{$taskId}.");
+        }
+    }
+
+    elseif ($command === 'HELP') {
+        if ($task) {
+            $s = $conn->prepare("UPDATE scheduled_tasks SET status='NeedsHelp', updated_at=NOW() WHERE id=?");
+            $s->bind_param("i", $taskId); $s->execute(); $s->close();
+        }
+        $helpMsg = $autoReplies['HELP'][$category] ?? $autoReplies['HELP']['General'];
+        queueSMS($conn, $cleanPhone, $helpMsg, $worker_id);
+
+        $batchInfo = $batchName ? " in {$batchName}" : '';
+        $msg = "{$workerName} ({$cleanPhone}) needs HELP with {$category}{$batchInfo}" . ($taskId ? " (Task #{$taskId})" : '') . ".";
+        createAlert($conn, 'HELP', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
+        if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto: {$workerName} needs HELP on {$category} task{$batchInfo}. Phone: {$cleanPhone}.");
+    }
+
+    elseif ($command === 'PEST') {
+        $s = $conn->prepare("INSERT INTO pest_alerts (worker_id, phone, batch_id, task_id, status, reported_at) VALUES (?, ?, ?, ?, 'Open', NOW())");
+        $s->bind_param("isii", $worker_id, $cleanPhone, $batchId, $taskId); $s->execute(); $s->close();
+
+        $batchInfo = $batchName ? " in {$batchName}" : '';
+        $msg = "PEST report from {$workerName} ({$cleanPhone}){$batchInfo}. Urgent inspection required.";
+        createAlert($conn, 'PEST', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
+        if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto URGENT: {$workerName} reported PEST{$batchInfo}. Immediate inspection required. Phone: {$cleanPhone}.");
+        queueSMS($conn, $cleanPhone, $autoReplies['PEST'], $worker_id);
+        // Task status NOT changed for PEST
+    }
+
+    echo json_encode(["success" => true, "command" => $command, "message" => "Reply processed"]);
 }
 
 $conn->close();

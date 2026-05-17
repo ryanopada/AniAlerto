@@ -16,13 +16,17 @@ foreach ($messages as $sms) {
     $status = $result['success'] ? 'Sent' : 'Failed';
     $queueStatus = $result['success'] ? 'Sent' : 'Retry';
 
-    $pdo->prepare(
-        "INSERT INTO sms_logs (queue_id, task_id, worker_id, phone, message, direction, status, provider_ref, raw_response, sent_at, created_at)
-         VALUES (?, ?, ?, ?, ?, 'Outbound', ?, ?, ?, NOW(), NOW())"
-    )->execute([
-        $sms['id'], $sms['task_id'], $sms['worker_id'], $sms['phone'], $sms['message'],
-        $status, $result['provider_ref'] ?? null, $result['raw_response'] ?? null
-    ]);
+    // Only log to sms_logs for task/quick-send messages.
+    // Auto-replies (skip_log=1) are sent but not tracked in SMS Monitoring.
+    if (empty($sms['skip_log'])) {
+        $pdo->prepare(
+            "INSERT INTO sms_logs (queue_id, task_id, worker_id, phone, message, direction, status, provider_ref, raw_response, sent_at, created_at)
+             VALUES (?, ?, ?, ?, ?, 'Outbound', ?, ?, ?, NOW(), NOW())"
+        )->execute([
+            $sms['id'], $sms['task_id'], $sms['worker_id'], $sms['phone'], $sms['message'],
+            $status, $result['provider_ref'] ?? null, $result['raw_response'] ?? null
+        ]);
+    }
 
     $pdo->prepare("UPDATE sms_queue SET status=?, updated_at=NOW() WHERE id=?")->execute([$queueStatus, $sms['id']]);
     $processed++;

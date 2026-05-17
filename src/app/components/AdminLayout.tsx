@@ -1,13 +1,15 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Calendar } from "lucide-react";
+import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Calendar, Bell } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 
 interface AdminLayoutProps {
   onLogout: () => void;
+  unreadCount?: number;
+  onAlertsRead?: () => void;
 }
 
-export function AdminLayout({ onLogout }: AdminLayoutProps) {
+export function AdminLayout({ onLogout, unreadCount = 0 }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,6 +53,19 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
 
           <div className="flex items-center gap-4">
             <span className="text-sm text-white hidden sm:inline">Administrator</span>
+            {/* Notification Bell */}
+            <button
+              onClick={() => navigate('/admin/dashboard')}
+              className="relative text-white hover:text-green-200 transition-colors"
+              title="View alerts"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
             <Button
               variant="outline"
               size="sm"

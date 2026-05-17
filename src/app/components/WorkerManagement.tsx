@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Trash2, Search, Users, UserCheck, UserX, ChevronDown, ChevronUp, BarChart3, Loader2, MessageSquare, Send, Inbox, CheckCircle, Clock, AlertCircle, X } from "lucide-react";
+import { Plus, Edit, Search, Users, UserCheck, UserX, ChevronDown, ChevronUp, BarChart3, Loader2, MessageSquare, Send, Inbox, CheckCircle, Clock, AlertCircle, X } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -16,7 +16,8 @@ interface Worker {
   id: string;
   name: string;
   phone: string;
-  assignedBatch: string;
+  assignedBatch: string;   // display name shown in the table
+  batchId: string | null;  // numeric id sent to backend
   status: "Active" | "Inactive";
 }
 
@@ -69,7 +70,7 @@ export function WorkerManagement() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    assignedBatch: "",
+    batchId: "",   // stores the selected batch's numeric id
     status: "Active" as Worker["status"],
   });
 
@@ -83,7 +84,15 @@ export function WorkerManagement() {
       const response = await fetch(WORKER_API_URL);
       if (!response.ok) throw new Error("Failed to fetch workers");
       const data = await response.json();
-      setWorkers(data);
+      // Map API fields: batch_name → assignedBatch (display), batch_id → batchId
+      setWorkers(data.map((w: any) => ({
+        id:            w.id,
+        name:          w.name,
+        phone:         w.phone,
+        status:        w.status,
+        assignedBatch: w.batch_name || '-',
+        batchId:       w.batch_id   || null,
+      })));
     } catch (error) {
       console.error("Error loading workers:", error);
     } finally {
@@ -112,12 +121,16 @@ export function WorkerManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const method = editingWorker ? "PUT" : "POST";
-    
+
+    const payload = editingWorker
+      ? { id: editingWorker.id, name: formData.name, phone: formData.phone, status: formData.status, batchId: formData.batchId }
+      : { name: formData.name, phone: formData.phone, status: formData.status, batchId: formData.batchId };
+
     try {
       const response = await fetch(WORKER_API_URL, {
         method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingWorker ? { ...formData, id: editingWorker.id } : formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -129,14 +142,26 @@ export function WorkerManagement() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this worker?")) return;
-    
+  // Toggle a worker between Active ↔ Inactive (no deletion)
+  const handleToggleStatus = async (worker: Worker) => {
+    const newStatus = worker.status === "Active" ? "Inactive" : "Active";
+    const action    = newStatus === "Inactive" ? "disable" : "re-enable";
+    if (!confirm(`${action === "disable" ? "Disable" : "Re-enable"} ${worker.name}? They will ${newStatus === "Inactive" ? "stop receiving SMS reminders" : "resume receiving SMS reminders"}.`)) return;
+
     try {
-      const response = await fetch(`${WORKER_API_URL}?id=${id}`, { method: "DELETE" });
-      if (response.ok) fetchWorkers();
+      const response = await fetch(WORKER_API_URL, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ id: worker.id, status: newStatus }),
+      });
+      if (response.ok) {
+        // Optimistic update — flip status in local state immediately
+        setWorkers(prev =>
+          prev.map(w => w.id === worker.id ? { ...w, status: newStatus as Worker["status"] } : w)
+        );
+      }
     } catch (error) {
-      console.error("Error deleting worker:", error);
+      console.error("Error toggling worker status:", error);
     }
   };
 
@@ -158,10 +183,10 @@ export function WorkerManagement() {
   const handleOpenEdit = (worker: Worker) => {
     setEditingWorker(worker);
     setFormData({
-      name: worker.name,
-      phone: worker.phone,
-      assignedBatch: worker.assignedBatch,
-      status: worker.status,
+      name:    worker.name,
+      phone:   worker.phone,
+      batchId: worker.batchId || "",
+      status:  worker.status,
     });
     fetchBatches();
     setIsDialogOpen(true);
@@ -249,7 +274,7 @@ export function WorkerManagement() {
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
             <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={() => { 
               setEditingWorker(null); 
-              setFormData({ name: "", phone: "", assignedBatch: "", status: "Active" });
+              setFormData({ name: "", phone: "", batchId: "", status: "Active" });
               fetchBatches(); 
               setIsDialogOpen(true); 
             }}>
@@ -396,7 +421,27 @@ export function WorkerManagement() {
                           <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(worker)}><Edit className="h-4 w-4 text-[#5d8044]" /></Button>
                         </motion.button>
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDelete(worker.id)}><Trash2 className="h-4 w-4" /></Button>
+                          {worker.status === "Active" ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Disable worker"
+                              className="text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                              onClick={() => handleToggleStatus(worker)}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Re-enable worker"
+                              className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                              onClick={() => handleToggleStatus(worker)}
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                          )}
                         </motion.button>
                       </TableCell>
                     </motion.tr>
@@ -426,13 +471,12 @@ export function WorkerManagement() {
               <Label>Batch Assignment</Label>
               <select 
                 className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]"
-                value={formData.assignedBatch} 
-                onChange={e => setFormData({...formData, assignedBatch: e.target.value})}
-                required
+                value={formData.batchId} 
+                onChange={e => setFormData({...formData, batchId: e.target.value})}
               >
-                <option value="" disabled>Select a batch</option>
+                <option value="">-- No batch assigned --</option>
                 {batches.map((batch) => (
-                  <option key={batch.id} value={batch.name}>
+                  <option key={batch.id} value={batch.id}>
                     {batch.name}
                   </option>
                 ))}
