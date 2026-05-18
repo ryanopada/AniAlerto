@@ -10,6 +10,21 @@ require_once 'Database.php';
 $database = new Database();
 $db = $database->getConnection();
 
+// ── Auto-create alerts table (idempotent) ────────────────────────────────────
+$db->exec("
+    CREATE TABLE IF NOT EXISTS alerts (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        type        VARCHAR(20)  NOT NULL,
+        worker_id   INT          DEFAULT NULL,
+        worker_name VARCHAR(150) DEFAULT NULL,
+        phone       VARCHAR(30)  DEFAULT NULL,
+        task_id     INT          DEFAULT NULL,
+        message     TEXT         DEFAULT NULL,
+        is_read     TINYINT      NOT NULL DEFAULT 0,
+        created_at  DATETIME     NOT NULL DEFAULT NOW()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
+
 try {
     // Mark alert as read (POST with id)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {

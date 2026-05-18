@@ -13,33 +13,28 @@ $db = $database->getConnection();
 $results = [
     'tasks_created'   => 0,
     'sms_queued'      => 0,
+    'sms_retried'     => 0,
     'templates_found' => 0,
     'details'         => []
 ];
 
-try {
-    // ── Find templates whose scheduled_send_datetime has arrived ────────────────
-    // Match: date matches today AND hour matches current hour
-    // This means the scheduler should be triggered at least once per hour (e.g. via cron or bat)
-    $nowDate = date('Y-m-d');
-    $nowHour = (int)date('H');
-    $nowMin  = (int)date('i');
+// Reply guide appended to every scheduled SMS (mirrors scheduler.js)
+$REPLY_GUIDE = "\n\nReply only: DONE, DELAY, HELP, PEST\nSumagot lamang ng: DONE, DELAY, HELP, PEST";
 
+try {
+    $nowDT   = date('Y-m-d H:i:s'); // Manila local time (XAMPP uses system clock)
+    $nowDate = date('Y-m-d');
+
+    // ── Find templates whose scheduled_send_datetime has arrived ────────────────
     $tStmt = $db->prepare("
         SELECT mt.*, fb.name AS batch_name
         FROM message_templates mt
         LEFT JOIN farm_batches fb ON mt.batch_id = fb.id
         WHERE mt.active = 1
           AND mt.scheduled_send_datetime IS NOT NULL
-          AND DATE(mt.scheduled_send_datetime)  = :today
-          AND HOUR(mt.scheduled_send_datetime)  = :hour
-          AND MINUTE(mt.scheduled_send_datetime) <= :minute
+          AND mt.scheduled_send_datetime <= :now
     ");
-    $tStmt->execute([
-        ':today'  => $nowDate,
-        ':hour'   => $nowHour,
-        ':minute' => $nowMin,
-    ]);
+    $tStmt->execute([':now' => $nowDT]);
     $templates = $tStmt->fetchAll(PDO::FETCH_ASSOC);
     $results['templates_found'] = count($templates);
 
@@ -48,10 +43,11 @@ try {
         $rawMessage = $template['message'];
         $batchId    = $template['batch_id'];
         $batchName  = $template['batch_name'] ?? 'All Batches';
+        $daysAfter  = $template['days_after_planting'] ?? 0;
+        $msgPrefix  = substr($rawMessage, 0, 40);
 
         // ── Get target workers ──────────────────────────────────────────────────
         if ($batchId) {
-            // Specific batch only
             $wStmt = $db->prepare("
                 SELECT w.id, w.phone, w.name
                 FROM workers w
@@ -60,64 +56,109 @@ try {
             ");
             $wStmt->execute([':batchId' => $batchId]);
         } else {
-            // All active workers
-            $wStmt = $db->prepare("
-                SELECT id, phone, name FROM workers WHERE status = 'Active'
-            ");
+            $wStmt = $db->prepare("SELECT id, phone, name FROM workers WHERE status = 'Active'");
             $wStmt->execute();
         }
         $workers = $wStmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($workers)) {
-            $results['details'][] = "No workers found for template #{$templateId} ({$batchName})";
+            $results['details'][] = "No workers for template #{$templateId} ({$batchName})";
             continue;
         }
 
+        // ── Reuse or create the scheduled_task row ──────────────────────────────
+        // No DATE(created_at)=today restriction — we reuse across retry days.
+        $taskId = null;
+        if ($batchId) {
+            $existStmt = $db->prepare("
+                SELECT id FROM scheduled_tasks
+                WHERE batch_id = :bid AND template_id = :tid
+                LIMIT 1
+            ");
+            $existStmt->execute([':bid' => $batchId, ':tid' => $templateId]);
+            $existRow = $existStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($existRow) {
+                $taskId = $existRow['id'];
+            } else {
+                try {
+                    $taskStmt = $db->prepare("
+                        INSERT INTO scheduled_tasks
+                            (batch_id, template_id, due_date, status, created_at)
+                        VALUES (:bid, :tid, :dueDate, 'Pending', NOW())
+                    ");
+                    $taskStmt->execute([
+                        ':bid'     => $batchId,
+                        ':tid'     => $templateId,
+                        ':dueDate' => $nowDate,
+                    ]);
+                    $taskId = $db->lastInsertId();
+                    $results['tasks_created']++;
+                } catch (PDOException $e) {
+                    $results['details'][] = "Task insert failed for template #{$templateId}: " . $e->getMessage();
+                    continue;
+                }
+            }
+        }
+
         foreach ($workers as $worker) {
-            // Deduplicate: skip if already queued for this worker+template today
-            $dupCheck = $db->prepare("
+            if (empty($worker['phone'])) continue;
+
+            // ── Step 1: Skip if already active or sent (no DATE restriction!) ───
+            // KEY FIX: removed AND DATE(st.created_at)=today — that caused the
+            // scheduler to re-queue templates already sent on a prior day.
+            $activeCheck = $db->prepare("
                 SELECT COUNT(*) AS cnt FROM sms_queue sq
                 WHERE sq.worker_id = :wid
-                  AND EXISTS (
-                      SELECT 1 FROM scheduled_tasks st
-                      WHERE st.id = sq.task_id AND st.template_id = :tid
-                        AND DATE(st.created_at) = :today
+                  AND sq.status IN ('Queued', 'Sending', 'Retry', 'Sent')
+                  AND (
+                    (sq.task_id IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM scheduled_tasks st
+                        WHERE st.id = sq.task_id AND st.template_id = :tid
+                    ))
+                    OR
+                    (sq.task_id IS NULL AND sq.message LIKE :prefix)
                   )
             ");
-            $dupCheck->execute([':wid' => $worker['id'], ':tid' => $templateId, ':today' => $nowDate]);
-            if ($dupCheck->fetch(PDO::FETCH_ASSOC)['cnt'] > 0) {
-                $results['details'][] = "Skip dup: {$worker['name']} / template #{$templateId}";
+            $activeCheck->execute([':wid' => $worker['id'], ':tid' => $templateId, ':prefix' => $msgPrefix . '%']);
+            if ($activeCheck->fetch(PDO::FETCH_ASSOC)['cnt'] > 0) {
+                $results['details'][] = "Skip (active/sent): {$worker['name']} / template #{$templateId}";
                 continue;
             }
 
-            // Personalise message
-            $daysAfter    = $template['days_after_planting'] ?? 0;
+            // ── Step 2: Reset a Failed row to Queued (retry, no duplicate row) ──
+            $failedCheck = $db->prepare("
+                SELECT id FROM sms_queue sq
+                WHERE sq.worker_id = :wid
+                  AND sq.status = 'Failed'
+                  AND (
+                    (sq.task_id IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM scheduled_tasks st
+                        WHERE st.id = sq.task_id AND st.template_id = :tid
+                    ))
+                    OR
+                    (sq.task_id IS NULL AND sq.message LIKE :prefix)
+                  )
+                ORDER BY created_at DESC LIMIT 1
+            ");
+            $failedCheck->execute([':wid' => $worker['id'], ':tid' => $templateId, ':prefix' => $msgPrefix . '%']);
+            $failedRow = $failedCheck->fetch(PDO::FETCH_ASSOC);
+
+            if ($failedRow) {
+                $db->prepare("UPDATE sms_queue SET status='Queued', attempts=0, updated_at=NOW() WHERE id=:id")
+                   ->execute([':id' => $failedRow['id']]);
+                $results['sms_retried']++;
+                $results['details'][] = "Retry reset: {$worker['name']} / template #{$templateId}";
+                continue;
+            }
+
+            // ── Step 3: No existing row — insert a fresh Queued entry ────────────
             $finalMessage = str_replace(
                 ['{batch_name}', '{crop_day}', '{worker_name}'],
                 [$batchName, $daysAfter, $worker['name']],
                 $rawMessage
-            );
+            ) . $REPLY_GUIDE;
 
-            // Create scheduled_task row
-            try {
-                $taskStmt = $db->prepare("
-                    INSERT INTO scheduled_tasks
-                        (batch_id, template_id, due_date, status, created_at)
-                    VALUES (:bid, :tid, :dueDate, 'Pending', NOW())
-                ");
-                $taskStmt->execute([
-                    ':bid'     => $batchId,
-                    ':tid'     => $templateId,
-                    ':dueDate' => $nowDate,
-                ]);
-                $taskId = $db->lastInsertId();
-                $results['tasks_created']++;
-            } catch (PDOException $e) {
-                $results['details'][] = "Task insert failed for template #{$templateId}: " . $e->getMessage();
-                continue;
-            }
-
-            // Queue the SMS
             $qStmt = $db->prepare("
                 INSERT INTO sms_queue
                     (task_id, worker_id, phone, message, status, created_at)
@@ -130,13 +171,14 @@ try {
                 ':msg'   => $finalMessage,
             ]);
             $results['sms_queued']++;
-            $results['details'][] = "Queued to {$worker['name']} ({$worker['phone']}) — template #{$templateId}";
+            $results['details'][] = "Queued: {$worker['name']} ({$worker['phone']}) — template #{$templateId}";
         }
     }
 
     echo json_encode([
         'status'  => 'success',
-        'message' => "Done. {$results['templates_found']} template(s) matched, {$results['sms_queued']} SMS queued.",
+        'message' => "Done. {$results['templates_found']} template(s) matched, "
+                   . "{$results['sms_queued']} queued, {$results['sms_retried']} retried.",
         'data'    => $results,
     ]);
 

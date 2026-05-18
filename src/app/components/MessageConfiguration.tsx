@@ -6,11 +6,11 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Trash2, Clock, Eye, ChevronDown, ChevronUp, BarChart3, Search, MessageSquare, CheckCircle, Hash, Layers } from "lucide-react";
+import { Plus, Edit, Trash2, Clock, Eye, ChevronDown, ChevronUp, BarChart3, Search, MessageSquare, CheckCircle, Hash, Layers, FlaskConical, ShieldCheck, AlertTriangle, CalendarClock } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface MessageTemplate {
   id: string;
@@ -19,6 +19,8 @@ interface MessageTemplate {
   message: string;
   days_after_planting: number;
   active: boolean | number;
+  is_test?: number;
+  queued_at?: string | null;
   expected_responses?: string[];
   trigger_type?: string;
   batch_id?: string | null;
@@ -26,6 +28,21 @@ interface MessageTemplate {
   scheduled_time?: string;
   plant_date?: string | null;
   scheduled_send_datetime?: string | null;
+}
+
+interface ScheduledMessage {
+  id: string;
+  name: string;
+  category: string;
+  message: string;
+  scheduled_send_datetime: string;
+  active: number;
+  is_test: number;
+  queued_at: string | null;
+  batch_id: string | null;
+  batch_name: string | null;
+  queued_count: number;
+  sent_count: number;
 }
 
 interface Batch {
@@ -37,15 +54,19 @@ interface Batch {
 export function MessageConfiguration() {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState<MessageTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [managerAction, setManagerAction] = useState<string | null>(null);
   
-  const API_URL = "http://localhost/anialerto-backend/src/message_config.php";
+  const API_URL     = "http://localhost/anialerto-backend/src/message_config.php";
   const BATCHES_URL = "http://localhost/anialerto-backend/src/batches.php";
+  const MANAGE_URL  = "http://localhost/anialerto-backend/src/manage_scheduled.php";
 
   const emptyForm = {
     name: "",
@@ -53,6 +74,7 @@ export function MessageConfiguration() {
     message: "",
     days_after_planting: 0,
     active: true,
+    is_test: false,
     expected_responses: [] as string[],
     batch_id: "" as string,
     scheduled_time: "06:00",
@@ -72,6 +94,16 @@ export function MessageConfiguration() {
     }
   };
 
+  const fetchScheduledMessages = async () => {
+    try {
+      const res = await fetch(MANAGE_URL);
+      const data = await res.json();
+      setScheduledMessages(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Error fetching scheduled messages:", e);
+    }
+  };
+
   const fetchBatches = async () => {
     try {
       const res = await fetch(BATCHES_URL);
@@ -85,6 +117,7 @@ export function MessageConfiguration() {
   useEffect(() => {
     fetchTemplates();
     fetchBatches();
+    fetchScheduledMessages();
   }, []);
 
   const categories: MessageTemplate["category"][] = ["Irrigation", "Fertilization", "Pest Control", "Harvest", "General"];
@@ -110,6 +143,7 @@ export function MessageConfiguration() {
       message: template.message,
       days_after_planting: template.days_after_planting,
       active: !!template.active,
+      is_test: !!(template.is_test),
       expected_responses: template.expected_responses || [],
       batch_id: template.batch_id ?? "",
       scheduled_time: template.scheduled_time ?? "06:00",
@@ -142,8 +176,41 @@ export function MessageConfiguration() {
     if (confirm("Are you sure you want to delete this message template?")) {
       await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
       fetchTemplates();
+      fetchScheduledMessages();
       setIsDialogOpen(false);
     }
+  };
+
+  // ── Scheduled Message Manager actions ────────────────────────────────────
+  const handleManagerDelete = async (id: string) => {
+    if (!confirm("Permanently delete this scheduled message template? Any pending queue entries will be cancelled.")) return;
+    setManagerAction(id + '-del');
+    await fetch(`${MANAGE_URL}?id=${id}`, { method: 'DELETE' });
+    await Promise.all([fetchTemplates(), fetchScheduledMessages()]);
+    setManagerAction(null);
+  };
+
+  const handleManagerMarkSent = async (id: string) => {
+    if (!confirm("Mark this scheduled message as already sent? It will be deactivated and the scheduler will skip it.")) return;
+    setManagerAction(id + '-sent');
+    await fetch(MANAGE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: 'mark_sent' }),
+    });
+    await Promise.all([fetchTemplates(), fetchScheduledMessages()]);
+    setManagerAction(null);
+  };
+
+  const handleManagerToggleTest = async (id: string) => {
+    setManagerAction(id + '-test');
+    await fetch(MANAGE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: 'toggle_test' }),
+    });
+    await Promise.all([fetchTemplates(), fetchScheduledMessages()]);
+    setManagerAction(null);
   };
 
   const handleToggleActive = async (id: string) => {
@@ -174,10 +241,11 @@ export function MessageConfiguration() {
       ...formData,
       id: editingTemplate?.id,
       active: formData.active ? 1 : 0,
+      is_test: formData.is_test ? 1 : 0,
       trigger_type: "days_after_planting",
       batch_id: formData.batch_id || null,
       scheduled_time: formData.scheduled_send_datetime
-        ? formData.scheduled_send_datetime.slice(11, 16) // extract HH:MM
+        ? formData.scheduled_send_datetime.slice(11, 16)
         : formData.scheduled_time || "06:00",
       days_after_planting: computedDays,
       plant_date: formData.plant_date || null,
@@ -190,6 +258,7 @@ export function MessageConfiguration() {
     });
     setIsDialogOpen(false);
     fetchTemplates();
+    fetchScheduledMessages();
   };
 
   const stats = useMemo(() => ({
@@ -345,6 +414,21 @@ export function MessageConfiguration() {
                   ))}
                 </div>
               </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                <input
+                  type="checkbox"
+                  id="is_test"
+                  checked={!!formData.is_test}
+                  onChange={(e) => setFormData({ ...formData, is_test: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <div>
+                  <Label htmlFor="is_test" className="flex items-center gap-2 cursor-pointer text-amber-800 font-medium">
+                    <FlaskConical className="h-4 w-4" /> Mark as Test Message
+                  </Label>
+                  <p className="text-xs text-amber-600 mt-0.5">The scheduler will skip this message — it won't be sent to workers.</p>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="active" checked={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.checked })} className="h-4 w-4" />
                 <Label htmlFor="active">Active (send this message automatically)</Label>
@@ -433,6 +517,118 @@ export function MessageConfiguration() {
                   </ResponsiveContainer>
                 </div>
               </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </motion.div>
+
+      {/* ── Scheduled Messages Manager ──────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.42 }}
+      >
+        <Collapsible open={isManagerOpen} onOpenChange={setIsManagerOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
+              <div className="flex items-center gap-3 text-[#3d5a36]">
+                <CalendarClock className="h-5 w-5 text-[#5d8044]" />
+                <span className="font-semibold">Scheduled Messages Manager</span>
+                {scheduledMessages.some(m => m.is_test === 1 && m.active === 1 && !m.queued_at) && (
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 border border-amber-300 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    test messages pending
+                  </span>
+                )}
+              </div>
+              {isManagerOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="border-t border-[#e5ede0] bg-[#f8fdf3]">
+            <div className="p-6 space-y-4">
+              {scheduledMessages.some(m => m.is_test === 1 && m.active === 1 && !m.queued_at) && (
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4 text-amber-800 text-sm">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-500" />
+                  <p><strong>Test messages detected.</strong> The scheduler skips them automatically, but delete or mark them as sent before adding new workers.</p>
+                </div>
+              )}
+              {scheduledMessages.length === 0 ? (
+                <p className="text-center text-[#7b8f6f] py-8">No scheduled messages found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#e5ede0] text-[#7b8f6f] text-left">
+                        <th className="pb-3 font-medium">Name</th>
+                        <th className="pb-3 font-medium">Batch</th>
+                        <th className="pb-3 font-medium">Scheduled For</th>
+                        <th className="pb-3 font-medium text-center">Q/S</th>
+                        <th className="pb-3 font-medium">Status</th>
+                        <th className="pb-3 font-medium text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scheduledMessages.map((m) => {
+                        const isTest = m.is_test === 1;
+                        const isProcessed = !m.active || !!m.queued_at;
+                        const delBusy  = managerAction === m.id + '-del';
+                        const sentBusy = managerAction === m.id + '-sent';
+                        const testBusy = managerAction === m.id + '-test';
+                        return (
+                          <tr key={m.id} className="border-b border-[#f0f7ee] hover:bg-[#eff7ed] transition-colors">
+                            <td className="py-3 pr-3 font-medium text-[#3d5a36] max-w-[140px]">
+                              <p className="truncate" title={m.name}>{m.name}</p>
+                            </td>
+                            <td className="py-3 pr-3">
+                              {m.batch_name
+                                ? <span className="flex items-center gap-1 text-xs text-[#3d5a36]"><Layers className="h-3 w-3" />{m.batch_name}</span>
+                                : <span className="text-xs text-[#7b8f6f] italic">All</span>}
+                            </td>
+                            <td className="py-3 pr-3 text-[#556d4a]">
+                              {m.scheduled_send_datetime
+                                ? new Date(m.scheduled_send_datetime).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                : '—'}
+                            </td>
+                            <td className="py-3 pr-3 text-center text-[#556d4a] font-mono text-xs">{m.queued_count}/{m.sent_count}</td>
+                            <td className="py-3 pr-3">
+                              {isTest
+                                ? <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 w-fit"><FlaskConical className="h-3 w-3" />Test</span>
+                                : isProcessed
+                                  ? <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-300 w-fit block">Processed</span>
+                                  : <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 border border-green-300 w-fit block">Pending</span>}
+                            </td>
+                            <td className="py-3">
+                              <div className="flex gap-1.5 justify-end flex-wrap">
+                                <Button size="sm" variant="outline"
+                                  disabled={!!managerAction}
+                                  onClick={() => handleManagerToggleTest(m.id)}
+                                  className={`text-xs gap-1 ${isTest ? 'border-amber-400 text-amber-700 hover:bg-amber-50' : 'border-[#d9ead6] text-[#556d4a] hover:bg-[#eff7ed]'}`}>
+                                  <FlaskConical className="h-3 w-3" />
+                                  {testBusy ? '…' : isTest ? 'Unflag' : 'Test'}
+                                </Button>
+                                <Button size="sm" variant="outline"
+                                  disabled={!!managerAction || isProcessed}
+                                  onClick={() => handleManagerMarkSent(m.id)}
+                                  className="text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50">
+                                  <CheckCircle className="h-3 w-3" />
+                                  {sentBusy ? '…' : 'Mark Sent'}
+                                </Button>
+                                <Button size="sm" variant="destructive"
+                                  disabled={!!managerAction}
+                                  onClick={() => handleManagerDelete(m.id)}
+                                  className="text-xs gap-1">
+                                  <Trash2 className="h-3 w-3" />
+                                  {delBusy ? '…' : 'Delete'}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </CollapsibleContent>
         </Collapsible>
       </motion.div>

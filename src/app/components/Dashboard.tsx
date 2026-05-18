@@ -66,8 +66,8 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
     fetchStats();
     fetchAlerts();
     fetchCalendar();
-    // Auto-refresh alerts every 30 s
-    const alertTimer = setInterval(fetchAlerts, 30_000);
+    // Auto-refresh alerts every 15 s (live checklist requirement)
+    const alertTimer = setInterval(fetchAlerts, 15_000);
     // Auto-refresh calendar every 5 min
     const calTimer   = setInterval(fetchCalendar, 300_000);
     return () => { clearInterval(alertTimer); clearInterval(calTimer); };
@@ -186,60 +186,103 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                   <p className="text-xs">No unread agricultural advisories.</p>
                 </motion.div>
               ) : (
-                unread.map((alert, index) => (
-                  <motion.div key={alert.id}
-                    layout
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 40, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
-                    transition={{ duration: 0.35, delay: index * 0.05 }}
-                    className="flex items-center gap-3 p-3 mb-2 rounded-[1rem] border bg-[#f8fdf3] border-[#e5ede0] hover:border-[#5d8044]/40 transition-colors group"
-                  >
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => markAlertRead(alert.id)}
-                      title="Mark as acknowledged"
-                      className="flex-shrink-0 h-5 w-5 rounded border-2 border-[#5d8044] flex items-center justify-center
-                                 hover:bg-[#5d8044] hover:text-white transition-colors group-hover:border-[#3d5a36]"
+                unread.map((alert, index) => {
+                  // Split bilingual message at blank line (EN \n\n TL)
+                  const parts = (alert.message ?? '').split(/\n\n/);
+                  const msgEN = parts[0]?.trim() ?? alert.message ?? '';
+                  const msgTL = parts[1]?.trim() ?? '';
+
+                  // ── DELAY: info notification, no checkbox, auto-cleared by DONE ──
+                  if (alert.type === 'DELAY') {
+                    return (
+                      <motion.div key={alert.id}
+                        layout
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 40, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
+                        transition={{ duration: 0.35, delay: index * 0.05 }}
+                        className="flex items-start gap-3 p-3 mb-2 rounded-[1rem] border bg-amber-50 border-amber-200"
+                      >
+                        {/* Info icon — no checkbox */}
+                        <span className="flex-shrink-0 mt-0.5 h-5 w-5 rounded-full bg-amber-400 flex items-center justify-center">
+                          <AlertCircle className="h-3 w-3 text-white"/>
+                        </span>
+
+                        {/* Dot */}
+                        <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-yellow-400 mt-1.5"/>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-bold uppercase mr-2 text-yellow-700">DELAY</span>
+                          <span className="text-sm text-[#3d5a36]">{msgEN}</span>
+                          {msgTL && <p className="text-xs text-[#7b8f6f] mt-0.5 italic">{msgTL}</p>}
+                          {alert.worker_name && (
+                            <p className="text-xs text-[#7b8f6f] mt-0.5">Worker: {alert.worker_name} · {alert.phone}</p>
+                          )}
+                          <p className="text-[10px] text-amber-600 mt-1 font-medium">Auto-clears when worker replies DONE · Awtomatikong maaalis kapag sumagot ng DONE</p>
+                        </div>
+
+                        {/* Time only — no dismiss button */}
+                        <span className="text-xs text-[#556d4a] whitespace-nowrap flex-shrink-0">
+                          {new Date(alert.created_at).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </motion.div>
+                    );
+                  }
+
+                  // ── HELP / PEST: checkable items ──
+                  return (
+                    <motion.div key={alert.id}
+                      layout
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 40, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
+                      transition={{ duration: 0.35, delay: index * 0.05 }}
+                      className="flex items-start gap-3 p-3 mb-2 rounded-[1rem] border bg-[#f8fdf3] border-[#e5ede0] hover:border-[#5d8044]/40 transition-colors group"
                     >
-                      <CheckCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 text-white transition-opacity"/>
-                    </button>
-
-                    {/* Dot */}
-                    <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                      ["PEST","HELP"].includes(alert.type) ? "bg-red-500" :
-                      alert.type === "DELAY" ? "bg-yellow-400" : "bg-blue-400"
-                    }`}/>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-xs font-bold uppercase mr-2 ${
-                        ["PEST","HELP"].includes(alert.type) ? "text-red-600" : "text-yellow-600"
-                      }`}>{alert.type}</span>
-                      <span className="text-sm text-[#3d5a36]">{alert.message}</span>
-                      {alert.worker_name && (
-                        <p className="text-xs text-[#7b8f6f] mt-0.5">Worker: {alert.worker_name} · {alert.phone}</p>
-                      )}
-                    </div>
-
-                    {/* Time + check button */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-[#556d4a] whitespace-nowrap">
-                        {new Date(alert.created_at).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                      <button onClick={() => markAlertRead(alert.id)}
-                        className="text-[#5d8044] hover:text-[#3d5a36] opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Dismiss">
-                        <X className="h-3.5 w-3.5"/>
+                      {/* Checkbox */}
+                      <button
+                        onClick={() => markAlertRead(alert.id)}
+                        title="Mark as handled / resolved"
+                        className="flex-shrink-0 mt-0.5 h-5 w-5 rounded border-2 border-[#5d8044] flex items-center justify-center
+                                   hover:bg-[#5d8044] hover:text-white transition-colors group-hover:border-[#3d5a36]"
+                      >
+                        <CheckCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 text-white transition-opacity"/>
                       </button>
-                    </div>
-                  </motion.div>
-                ))
+
+                      {/* Dot */}
+                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500 mt-1.5"/>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold uppercase mr-2 text-red-600">{alert.type}</span>
+                        <span className="text-sm text-[#3d5a36]">{msgEN}</span>
+                        {msgTL && <p className="text-xs text-[#7b8f6f] mt-0.5 italic">{msgTL}</p>}
+                        {alert.worker_name && (
+                          <p className="text-xs text-[#7b8f6f] mt-0.5">Worker: {alert.worker_name} · {alert.phone}</p>
+                        )}
+                        <p className="text-[10px] text-[#5d8044] mt-1 font-medium">Check to mark as handled · I-check upang markahan bilang naayos</p>
+                      </div>
+
+                      {/* Time + dismiss */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-[#556d4a] whitespace-nowrap">
+                          {new Date(alert.created_at).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        <button onClick={() => markAlertRead(alert.id)}
+                          className="text-[#5d8044] hover:text-[#3d5a36] opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Dismiss">
+                          <X className="h-3.5 w-3.5"/>
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })
               )}
             </AnimatePresence>
             {localAlerts.filter(a => a.is_read).length > 0 && (
               <p className="text-center text-xs text-[#7b8f6f] mt-2">
-                {localAlerts.filter(a => a.is_read).length} acknowledged advisory(ies) hidden · auto-refreshes every 30s
+                {localAlerts.filter(a => a.is_read).length} acknowledged advisory(ies) hidden · auto-refreshes every 15s
               </p>
             )}
           </CardContent>

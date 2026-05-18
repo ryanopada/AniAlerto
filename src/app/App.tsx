@@ -15,6 +15,7 @@ import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
 import { CropCalendar } from "./components/CropCalendar";
 
+
 interface Alert {
   id: number;
   type: string;
@@ -28,9 +29,23 @@ interface Alert {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+  // Read from localStorage on every render so a page refresh always honours
+  // the persisted token, regardless of React state initialization order.
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem("anialerto_auth") === "true";
   });
+
+  // Keep state in sync if another tab logs out
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "anialerto_auth") {
+        setIsAuthenticated(e.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 

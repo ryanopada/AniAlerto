@@ -1,9 +1,11 @@
-import { Link } from "react-router";
+import { Link, useOutletContext } from "react-router";
 import { Button } from "./ui/button";
 import { MessageSquare, Bell, Users, BarChart, MapPin, Leaf, Calendar } from "lucide-react";
 import { motion } from "motion/react";
+import type { PublicOutletContext } from "./PublicLayout";
 
 export function HomePage() {
+  const { openLoginModal } = useOutletContext<PublicOutletContext>();
   const featureItems = [
     { icon: MessageSquare, title: "SMS Reminders", desc: "Automated notifications for irrigation and fertilization." },
     { icon: Bell, title: "Task Alerts", desc: "Schedule reminders based on crop growth stages." },
@@ -72,11 +74,14 @@ export function HomePage() {
                   Learn More
                 </Button>
               </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline" className="bg-white/90 text-[#2C2C2C] hover:bg-white border-white px-8 shadow-lg">
-                  Admin Login
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={openLoginModal}
+                className="bg-white/90 text-[#2C2C2C] hover:bg-white border-white px-8 shadow-lg"
+              >
+                Admin Login
+              </Button>
             </motion.div>
           </motion.div>
 
@@ -203,11 +208,11 @@ export function HomePage() {
           <p className="text-xl mb-10 opacity-90 max-w-2xl mx-auto leading-relaxed">
             Access the administrative dashboard to manage your farm operations and workers.
           </p>
-          <Link to="/login">
+          <button onClick={openLoginModal} className="inline-block">
             <Button size="lg" variant="outline" className="bg-white text-[#556B2F] hover:bg-[#f1f5ee] border-white px-12 py-7 text-xl font-bold transition-all shadow-2xl">
               Access Admin Dashboard
             </Button>
-          </Link>
+          </button>
         </motion.div>
         <Leaf className="absolute -bottom-10 -right-10 h-64 w-64 text-white opacity-10 rotate-12" />
       </section>

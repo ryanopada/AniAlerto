@@ -44,11 +44,40 @@ async function main() {
   setReceiverDB(db);
   setSchedulerDB(db);
 
-  // Step 6: Startup cleanup — fix any rows stuck from previous crash
+  // Step 6: Startup cleanup — fix rows stuck from a previous crash or modem outage
+  // a) Any row still "Sending" means the worker crashed mid-send — move back to Retry
   await db.execute(`UPDATE sms_queue SET status='Retry' WHERE status='Sending'`);
+  // b) Rows that hit the attempt cap during the previous session → Failed
   await db.execute(`UPDATE sms_queue SET status='Failed' WHERE status='Retry' AND attempts >= 3`);
+  // c) KEY FIX: Scheduled messages (task_id IS NOT NULL) that became 'Failed' due to
+  //    the modem being offline are NOT permanent failures — reset them to Queued so
+  //    they are retried automatically in this session without any manual intervention.
+  const [failReset] = await db.execute(
+    `UPDATE sms_queue SET status='Queued', attempts=0, updated_at=NOW()
+     WHERE status='Failed' AND task_id IS NOT NULL`
+  );
+  if (failReset.affectedRows > 0) {
+    console.log(`[Worker] 🔄 Startup: reset ${failReset.affectedRows} failed scheduled message(s) → Queued for retry`);
+  }
   // Ensure skip_log column exists (for auto-replies that should not appear in SMS Monitoring)
   await db.execute(`ALTER TABLE sms_queue ADD COLUMN IF NOT EXISTS skip_log TINYINT NOT NULL DEFAULT 0`);
+
+  // ── Scheduled message feature migrations (safe / idempotent) ─────────────
+  await db.execute(`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS is_test    TINYINT  NOT NULL DEFAULT 0`);
+  await db.execute(`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS queued_at  DATETIME DEFAULT NULL`);
+  await db.execute(`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT NOW()`);
+  await db.execute(`ALTER TABLE batch_workers     ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT NOW()`);
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS message_recipients (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      template_id INT NOT NULL,
+      worker_id   INT NOT NULL,
+      created_at  DATETIME DEFAULT NOW(),
+      UNIQUE KEY uq_tmpl_worker (template_id, worker_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  console.log('[DB] \u2705 Schema migrations applied');
+
   // Ensure help_sessions table exists (tracks workers awaiting HELP menu reply)
   await db.execute(`
     CREATE TABLE IF NOT EXISTS help_sessions (
@@ -122,8 +151,8 @@ async function main() {
 
   // ── SCHEDULER LOOP ───────────────────────────────────────────────────────
   // Checks every 60 s for message templates whose scheduled_send_datetime
-  // has arrived and queues their SMS. Runs inside this worker so no external
-  // cron or Windows Task Scheduler is needed.
+  // has arrived. Queues new SMS, retries Failed ones — no external cron or
+  // manual "Run Scheduler" click required for normal operation.
   const SCHED_MS = 60_000; // check every 60 seconds
   async function schedulerLoop() {
     try {
@@ -131,12 +160,13 @@ async function main() {
     } catch (err) {
       console.error('[Scheduler] Loop error:', err.message);
     }
-    setTimeout(schedulerLoop, SCHED_MS);
+    setTimeout(schedulerLoop, SCHED_MS); // recursive setTimeout → never overlaps
   }
-  // Run once immediately on startup (catches any missed windows), then every 60 s
+  // Run once immediately on startup (catches any missed send windows from downtime),
+  // then every 60 s automatically.
   await runScheduler();
   setTimeout(schedulerLoop, SCHED_MS);
-  console.log('[Scheduler] ✅ Template scheduler active (60s interval)');
+  console.log('[Scheduler] ✅ Continuous scheduler active (60s interval) — no manual trigger needed');
 }
 
 main().catch(err => {

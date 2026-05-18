@@ -215,7 +215,7 @@ async function handleDelay(workerId, workerName, phone) {
     // Confirmation SMS first
     await queueAutoReply(phone, AUTO_REPLIES.DELAY, workerId);
 
-    // Follow-up reminder immediately (Option A)
+    // Follow-up reminder
     const urgentCategories = ['Irrigation', 'Pest Control'];
     const isHarvest = task.category === 'Harvest';
     const urgentTag = urgentCategories.includes(task.category) ? 'URGENT: ' : '';
@@ -225,23 +225,34 @@ async function handleDelay(workerId, workerName, phone) {
       `Reply only: DONE, DELAY, HELP, PEST\nSumagot lamang ng: DONE, DELAY, HELP, PEST`;
     await queueAutoReply(phone, followUp, workerId);
 
-    // Harvest delay → admin alert + admin SMS
+    // ★ FIX: Always create a dashboard checklist alert for DELAY (was Harvest-only)
+    const batchInfo = task.batch_name ? ` in ${task.batch_name}` : '';
+    const alertMsg  = `${workerName} (${phone}) reported DELAY on ${task.category || 'farming'} task${batchInfo}. Task #${task.id}.`;
+    await createAlert('DELAY', workerId, workerName, phone, task.id, alertMsg);
+
+    // Harvest delay → additionally notify admin by SMS
     if (isHarvest) {
-      const msg = `Harvest DELAY from ${workerName} (${phone}) in ${task.batch_name}. Task #${task.id}. Immediate follow-up required.`;
-      await createAlert('DELAY', workerId, workerName, phone, task.id, msg);
       const adminPhone = await getAdminPhone();
       if (adminPhone) {
         await queueAutoReply(adminPhone, `AniAlerto Alert: ${workerName} reported HARVEST DELAY in ${task.batch_name}. Task #${task.id}. Follow up immediately.`, null);
       }
     }
   } else {
-    // No pending task — still confirm
+    // No pending task — still confirm, but no alert (nothing to track)
     await queueAutoReply(phone, AUTO_REPLIES.DELAY, workerId);
     console.log(`[Receiver] ℹ️  No pending task for DELAY from ${workerName}`);
   }
 }
 
 async function handleHelp(workerId, workerName, phone) {
+  // ★ FIX: Guard against double-menu. If a session already exists for this worker,
+  // the modem re-delivered the HELP SMS — do NOT resend the menu.
+  const existingSession = await getHelpSession(phone, workerId);
+  if (existingSession) {
+    console.log(`[Receiver] 🆘 Help session already active for ${workerName} — skipping duplicate menu send`);
+    return;
+  }
+
   const task = await getTaskContext(workerId);
 
   // Mark task as NeedsHelp if one exists
@@ -253,13 +264,13 @@ async function handleHelp(workerId, workerName, phone) {
     console.log(`[Receiver] 🆘 Task ${task.id} → NeedsHelp`);
   }
 
-  // Step 1: Create a help session (worker now awaiting menu selection)
+  // Create help session (worker now awaiting menu selection)
   await createHelpSession(phone, workerId);
 
-  // Step 2: Send the numbered help menu
+  // Send the numbered help menu — exactly once
   await queueAutoReply(phone, HELP_MENU, workerId);
 
-  // Step 3: Notify admin that HELP was triggered
+  // Notify admin that HELP was triggered
   const batchInfo = task && task.batch_name ? ` in ${task.batch_name}` : '';
   const alertMsg  = `${workerName} (${phone}) requested HELP${batchInfo}. Menu sent — awaiting topic selection.`;
   await createAlert('HELP', workerId, workerName, phone, task ? task.id : null, alertMsg);

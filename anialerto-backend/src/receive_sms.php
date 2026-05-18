@@ -12,21 +12,36 @@ if ($conn->connect_error) {
     http_response_code(500); exit;
 }
 
+// ── Auto-create alerts table (idempotent) ────────────────────────────────────
+$conn->query("
+    CREATE TABLE IF NOT EXISTS alerts (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        type        VARCHAR(20)  NOT NULL,
+        worker_id   INT          DEFAULT NULL,
+        worker_name VARCHAR(150) DEFAULT NULL,
+        phone       VARCHAR(30)  DEFAULT NULL,
+        task_id     INT          DEFAULT NULL,
+        message     TEXT         DEFAULT NULL,
+        is_read     TINYINT      NOT NULL DEFAULT 0,
+        created_at  DATETIME     NOT NULL DEFAULT NOW()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
+
 // ── Valid commands (UOD removed) ──────────────────────────────────────────────
 $knownCommands = ['DONE', 'DELAY', 'HELP', 'PEST'];
 
 // ── Auto-reply messages ───────────────────────────────────────────────────────
 $autoReplies = [
-    'INVALID' => 'Invalid reply. Please reply only with DONE, DELAY, HELP, or PEST.',
-    'DONE'    => 'Task completion recorded. Thank you for updating AniAlerto.',
-    'DELAY'   => 'Delay recorded. A follow-up reminder will be sent for this task.',
-    'PEST'    => 'Pest incident recorded. Please inspect the affected area and prepare pesticide spraying if necessary.',
+    'INVALID' => "Invalid reply. Please reply only with DONE, DELAY, HELP, or PEST.\n\nMali ang sagot. Mangyaring sumagot lamang ng DONE, DELAY, HELP, o PEST.",
+    'DONE'    => "Task completion recorded. Thank you for updating AniAlerto.\n\nNaitala ang pagkumpleto ng gawain. Salamat sa pag-update sa AniAlerto.",
+    'DELAY'   => "Delay recorded. A follow-up reminder will be sent to the worker.\n\nNaitala ang pagkaantala. Magpapadala ng follow-up na paalala sa manggagawa.",
+    'PEST'    => "Pest incident recorded. Please inspect the affected area and prepare pesticide spraying if necessary.\n\nNaitala ang insidente ng peste. Mangyaring suriin ang apektadong lugar at ihanda ang pagpa-spray ng pesticide kung kinakailangan.",
     'HELP'    => [
-        'Irrigation'   => 'Irrigation Help: Check water source, irrigation path, and schedule.',
-        'Fertilization'=> 'Fertilizer Help: Apply the recommended amount evenly across the field.',
-        'Pest Control' => 'Spray Help: Wear protective equipment and apply spray evenly.',
-        'Harvest'      => 'Harvest Help: Ensure crops are mature and prepare harvesting tools.',
-        'General'      => 'Help received. Please wait for further instructions from our team.',
+        'Irrigation'   => "Irrigation Help: Check water source, irrigation path, and schedule.\n\nTulong sa Patubig: Suriin ang pinagmulan ng tubig, landas ng patubig, at iskedyul.",
+        'Fertilization'=> "Fertilizer Help: Apply the recommended amount evenly across the field.\n\nTulong sa Abono: Ilapat ang inirerekomendang dami nang pantay-pantay sa bukid.",
+        'Pest Control' => "Spray Help: Wear protective equipment and apply spray evenly.\n\nTulong sa Pag-spray: Magsuot ng proteksiyon at mag-spray nang pantay-pantay.",
+        'Harvest'      => "Harvest Help: Ensure crops are mature and prepare harvesting tools.\n\nTulong sa Ani: Tiyaking hinog na ang pananim at ihanda ang mga kagamitan sa pag-aani.",
+        'General'      => "Help received. Please wait for further instructions from our team.\n\nNatanggap ang tulong. Mangyaring maghintay ng karagdagang tagubilin mula sa aming koponan.",
     ],
 ];
 
@@ -174,6 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($task) {
             $s = $conn->prepare("UPDATE scheduled_tasks SET status='Completed', completed_at=NOW(), updated_at=NOW() WHERE id=?");
             $s->bind_param("i", $taskId); $s->execute(); $s->close();
+
+            // ★ Auto-dismiss any open DELAY alert for this worker on this task
+            $s = $conn->prepare("UPDATE alerts SET is_read=1 WHERE type='DELAY' AND worker_id=? AND task_id=? AND is_read=0");
+            $s->bind_param("ii", $worker_id, $taskId); $s->execute(); $s->close();
         }
         queueSMS($conn, $cleanPhone, $autoReplies['DONE'], $worker_id);
     }
@@ -185,14 +204,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         queueSMS($conn, $cleanPhone, $autoReplies['DELAY'], $worker_id);
 
-        $urgent  = in_array($category, ['Irrigation', 'Pest Control']) ? 'URGENT: ' : '';
-        $followUp = "{$urgent}AniAlerto Reminder: You reported a delay on your {$category} task in {$batchName}. Please complete it ASAP and reply DONE when done.";
+        $urgent   = in_array($category, ['Irrigation', 'Pest Control']) ? 'URGENT: ' : '';
+        $followUp = "{$urgent}AniAlerto Reminder: You reported a delay on your {$category} task in {$batchName}. Please complete it ASAP and reply DONE when done.\n\n{$urgent}AniAlerto Paalala: Nag-ulat ka ng pagkaantala sa iyong gawain sa {$category} sa {$batchName}. Kumpletuhin ito agad at sumagot ng DONE kapag tapos na.";
         queueSMS($conn, $cleanPhone, $followUp, $worker_id);
 
-        if ($category === 'Harvest') {
-            $msg = "Harvest DELAY from {$workerName} ({$cleanPhone}) in {$batchName}. Task #{$taskId}. Immediate follow-up required.";
-            createAlert($conn, 'DELAY', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
-            if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto Alert: {$workerName} reported HARVEST DELAY in {$batchName}. Task #{$taskId}.");
+        // Create a dashboard info-style alert for DELAY (no checkbox — auto-dismissed by DONE)
+        $batchInfo = $batchName ? " in {$batchName}" : '';
+        $msg  = "{$workerName} ({$cleanPhone}) reported DELAY on {$category} task{$batchInfo}" . ($taskId ? " (Task #{$taskId})" : '') . ".";
+        $msg .= "\n\nNag-ulat ng DELAY si {$workerName} ({$cleanPhone}) sa gawain ng {$category}{$batchInfo}" . ($taskId ? " (Gawain #{$taskId})" : '') . ". Magpapadala ng follow-up na paalala.";
+        createAlert($conn, 'DELAY', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
+
+        // Harvest additionally gets an admin SMS
+        if ($category === 'Harvest' && $adminPhone) {
+            queueSMS($conn, $adminPhone, "AniAlerto Alert: {$workerName} reported HARVEST DELAY in {$batchName}. Task #{$taskId}. Follow up immediately.\n\nAniAlerto Alerto: Nag-ulat ng HARVEST DELAY si {$workerName} sa {$batchName}. Gawain #{$taskId}. Mag-follow up agad.");
         }
     }
 
@@ -205,9 +229,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         queueSMS($conn, $cleanPhone, $helpMsg, $worker_id);
 
         $batchInfo = $batchName ? " in {$batchName}" : '';
-        $msg = "{$workerName} ({$cleanPhone}) needs HELP with {$category}{$batchInfo}" . ($taskId ? " (Task #{$taskId})" : '') . ".";
+        $msg  = "{$workerName} ({$cleanPhone}) needs HELP with {$category}{$batchInfo}" . ($taskId ? " (Task #{$taskId})" : '') . ".";
+        $msg .= "\n\nHumihingi ng HELP si {$workerName} ({$cleanPhone}) para sa {$category}{$batchInfo}" . ($taskId ? " (Gawain #{$taskId})" : '') . ". Mangyaring tulungan agad.";
         createAlert($conn, 'HELP', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
-        if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto: {$workerName} needs HELP on {$category} task{$batchInfo}. Phone: {$cleanPhone}.");
+        if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto: {$workerName} needs HELP on {$category} task{$batchInfo}. Phone: {$cleanPhone}.\n\nAniAlerto: Humihingi ng HELP si {$workerName} sa {$category}{$batchInfo}. Telepono: {$cleanPhone}.");
     }
 
     elseif ($command === 'PEST') {
@@ -215,9 +240,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $s->bind_param("isii", $worker_id, $cleanPhone, $batchId, $taskId); $s->execute(); $s->close();
 
         $batchInfo = $batchName ? " in {$batchName}" : '';
-        $msg = "PEST report from {$workerName} ({$cleanPhone}){$batchInfo}. Urgent inspection required.";
+        $msg  = "PEST report from {$workerName} ({$cleanPhone}){$batchInfo}. Urgent inspection required.";
+        $msg .= "\n\nUlat ng PEST mula kay {$workerName} ({$cleanPhone}){$batchInfo}. Kailangan ng agarang inspeksyon.";
         createAlert($conn, 'PEST', $worker_id, $workerName, $cleanPhone, $taskId, $msg);
-        if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto URGENT: {$workerName} reported PEST{$batchInfo}. Immediate inspection required. Phone: {$cleanPhone}.");
+        if ($adminPhone) queueSMS($conn, $adminPhone, "AniAlerto URGENT: {$workerName} reported PEST{$batchInfo}. Immediate inspection required. Phone: {$cleanPhone}.\n\nAniAlerto URGENT: Nag-ulat ng PEST si {$workerName}{$batchInfo}. Kailangan ng agarang inspeksyon. Telepono: {$cleanPhone}.");
         queueSMS($conn, $cleanPhone, $autoReplies['PEST'], $worker_id);
         // Task status NOT changed for PEST
     }
