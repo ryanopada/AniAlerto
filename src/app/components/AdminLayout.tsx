@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Calendar, Bell } from "lucide-react";
+import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Bell } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 
@@ -21,12 +21,11 @@ export function AdminLayout({ onLogout, unreadCount = 0 }: AdminLayoutProps) {
 
   const navItems = [
     { path: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { path: "/admin/batches", icon: Layers, label: "Farm Batches" },
-    { path: "/admin/calendar", icon: Calendar, label: "Crop Calendar" },
-    { path: "/admin/workers", icon: Users, label: "Workers" },
-    { path: "/admin/messages", icon: MessageSquare, label: "Messages" },
-    { path: "/admin/monitoring", icon: Activity, label: "SMS Monitoring" },
-    { path: "/admin/reports", icon: FileText, label: "Reports" },
+    { path: "/admin/batches",   icon: Layers,          label: "Farm Batches" },
+    { path: "/admin/workers",   icon: Users,           label: "Workers" },
+    { path: "/admin/messages",  icon: MessageSquare,   label: "Messages" },
+    { path: "/admin/monitoring",icon: Activity,        label: "SMS Monitoring" },
+    { path: "/admin/reports",   icon: FileText,        label: "Reports" },
   ];
 
   return (

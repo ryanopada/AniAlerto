@@ -22,10 +22,13 @@ $conn->query("
         phone       VARCHAR(30)  DEFAULT NULL,
         task_id     INT          DEFAULT NULL,
         message     TEXT         DEFAULT NULL,
+        done_reply  VARCHAR(255) DEFAULT NULL,
         is_read     TINYINT      NOT NULL DEFAULT 0,
         created_at  DATETIME     NOT NULL DEFAULT NOW()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ");
+// Migrate existing tables — safe to run every request
+$conn->query("ALTER TABLE alerts ADD COLUMN IF NOT EXISTS done_reply VARCHAR(255) DEFAULT NULL");
 
 // ── Valid commands (UOD removed) ──────────────────────────────────────────────
 $knownCommands = ['DONE', 'DELAY', 'HELP', 'PEST'];
@@ -189,11 +192,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($task) {
             $s = $conn->prepare("UPDATE scheduled_tasks SET status='Completed', completed_at=NOW(), updated_at=NOW() WHERE id=?");
             $s->bind_param("i", $taskId); $s->execute(); $s->close();
-
-            // ★ Auto-dismiss any open DELAY alert for this worker on this task
-            $s = $conn->prepare("UPDATE alerts SET is_read=1 WHERE type='DELAY' AND worker_id=? AND task_id=? AND is_read=0");
-            $s->bind_param("ii", $worker_id, $taskId); $s->execute(); $s->close();
         }
+
+        // ★ Update open DELAY alert: record done_reply & update message (admin must manually dismiss)
+        $doneEN  = "Worker {$workerName} replied DONE for {$category} task" . ($batchName ? " in {$batchName}" : '') . ($taskId ? " (Task #{$taskId})" : '') . ".";
+        $doneTL  = "Sumagot ng DONE si {$workerName} para sa gawain ng {$category}" . ($batchName ? " sa {$batchName}" : '') . ($taskId ? " (Gawain #{$taskId})" : '') . ".";
+        $doneMsg = $doneEN . "\n\n" . $doneTL;
+        if ($taskId) {
+            $s = $conn->prepare("UPDATE alerts SET done_reply=?, message=? WHERE type='DELAY' AND worker_id=? AND task_id=? AND is_read=0");
+            $s->bind_param("ssii", $workerName, $doneMsg, $worker_id, $taskId);
+        } else {
+            $s = $conn->prepare("UPDATE alerts SET done_reply=?, message=? WHERE type='DELAY' AND worker_id=? AND is_read=0 ORDER BY created_at DESC LIMIT 1");
+            $s->bind_param("ssi", $workerName, $doneMsg, $worker_id);
+        }
+        $s->execute(); $s->close();
+
         queueSMS($conn, $cleanPhone, $autoReplies['DONE'], $worker_id);
     }
 
@@ -204,11 +217,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         queueSMS($conn, $cleanPhone, $autoReplies['DELAY'], $worker_id);
 
-        $urgent   = in_array($category, ['Irrigation', 'Pest Control']) ? 'URGENT: ' : '';
-        $followUp = "{$urgent}AniAlerto Reminder: You reported a delay on your {$category} task in {$batchName}. Please complete it ASAP and reply DONE when done.\n\n{$urgent}AniAlerto Paalala: Nag-ulat ka ng pagkaantala sa iyong gawain sa {$category} sa {$batchName}. Kumpletuhin ito agad at sumagot ng DONE kapag tapos na.";
+        $urgent = in_array($category, ['Irrigation', 'Pest Control']) ? 'URGENT: ' : '';
+        $instrEN = [
+            'Irrigation'    => 'Check water source & irrigation lines.',
+            'Fertilization' => 'Apply fertilizer evenly across the field.',
+            'Pest Control'  => 'Inspect area, wear protective gear, and spray evenly.',
+            'Harvest'       => 'Ensure crops are mature and prepare harvesting tools.',
+            'General'       => 'Complete your assigned task as soon as possible.',
+        ];
+        $instrTL = [
+            'Irrigation'    => 'Suriin ang tubig at linya ng patubig.',
+            'Fertilization' => 'Mag-apply ng pataba nang pantay sa bukid.',
+            'Pest Control'  => 'Suriin ang lugar, magsuot ng proteksyon, mag-spray.',
+            'Harvest'       => 'Tiyaking hinog na. Ihanda ang mga kagamitan.',
+            'General'       => 'Kumpletuhin ang gawain sa lalong madaling panahon.',
+        ];
+        $iEN   = $instrEN[$category] ?? $instrEN['General'];
+        $iTL   = $instrTL[$category] ?? $instrTL['General'];
+        $ctx   = $batchName ? " in {$batchName}" : '';
+        $ctxTL = $batchName ? " sa {$batchName}" : '';
+        $followUp  = "{$urgent}AniAlerto Reminder: Your {$category} task{$ctx} is delayed. {$iEN} Reply DONE when finished.";
+        $followUp .= "\n\n{$urgent}AniAlerto Paalala: Naantala ang iyong {$category} na gawain{$ctxTL}. {$iTL} Sumagot ng DONE kapag tapos.";
         queueSMS($conn, $cleanPhone, $followUp, $worker_id);
 
-        // Create a dashboard info-style alert for DELAY (no checkbox — auto-dismissed by DONE)
+        // Create a dashboard checklist alert for DELAY (checkable by admin — does NOT auto-clear on DONE)
         $batchInfo = $batchName ? " in {$batchName}" : '';
         $msg  = "{$workerName} ({$cleanPhone}) reported DELAY on {$category} task{$batchInfo}" . ($taskId ? " (Task #{$taskId})" : '') . ".";
         $msg .= "\n\nNag-ulat ng DELAY si {$workerName} ({$cleanPhone}) sa gawain ng {$category}{$batchInfo}" . ($taskId ? " (Gawain #{$taskId})" : '') . ". Magpapadala ng follow-up na paalala.";

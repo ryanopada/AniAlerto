@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { PublicLayout } from "./components/PublicLayout";
 import { AdminLayout } from "./components/AdminLayout";
+import { LoginPage } from "./components/LoginPage";
 import { HomePage } from "./components/HomePage";
 import { AboutPage } from "./components/AboutPage";
 import { CornGuidePage } from "./components/CornGuidePage";
@@ -13,7 +14,6 @@ import { WorkerManagement } from "./components/WorkerManagement";
 import { MessageConfiguration } from "./components/MessageConfiguration";
 import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
-import { CropCalendar } from "./components/CropCalendar";
 
 
 interface Alert {
@@ -61,11 +61,24 @@ export default function App() {
     }
   };
 
+  // Called by Dashboard when admin resolves an alert — newCount comes straight
+  // from the POST response so the bell updates without waiting for next poll
+  const handleAlertsRead = (newCount?: number) => {
+    if (typeof newCount === 'number') {
+      setUnreadCount(newCount);
+    }
+    fetchAlerts(); // also sync the full alerts list
+  };
+
+
   useEffect(() => {
-    fetchAlerts();
-    const interval = setInterval(fetchAlerts, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (isAuthenticated) {
+      fetchAlerts();
+      const interval = setInterval(fetchAlerts, 10_000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
 
   const handleLogin = () => {
     localStorage.setItem("anialerto_auth", "true");
@@ -89,24 +102,33 @@ export default function App() {
           <Route path="farm-tour" element={<FarmTourPage />} />
         </Route>
 
-        {/* Admin Routes — protected, redirect to home if not authenticated */}
+        {/* Dedicated full-page login — accessible only when NOT authenticated */}
+        <Route
+          path="admin/login"
+          element={
+            isAuthenticated
+              ? <Navigate to="/admin/dashboard" replace />
+              : <LoginPage onLogin={handleLogin} />
+          }
+        />
+
+        {/* Admin Routes — protected, redirect to login page if not authenticated */}
         <Route
           path="admin"
           element={
             isAuthenticated ? (
-              <AdminLayout onLogout={handleLogout} unreadCount={unreadCount} onAlertsRead={fetchAlerts} />
+              <AdminLayout onLogout={handleLogout} unreadCount={unreadCount} onAlertsRead={handleAlertsRead} />
             ) : (
-              <Navigate to="/" replace />
+              <Navigate to="/admin/login" replace />
             )
           }
         >
-          <Route path="dashboard" element={<Dashboard alerts={alerts} onAlertsRead={fetchAlerts} />} />
+          <Route path="dashboard" element={<Dashboard alerts={alerts} onAlertsRead={handleAlertsRead} />} />
           <Route path="batches" element={<BatchManagement />} />
           <Route path="workers" element={<WorkerManagement />} />
           <Route path="messages" element={<MessageConfiguration />} />
           <Route path="monitoring" element={<SMSMonitoring />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="calendar" element={<CropCalendar />} />
+          <Route path="reports"    element={<Reports />} />
           <Route path="responses" element={<Navigate to="../monitoring" replace />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
