@@ -76,7 +76,21 @@ async function main() {
       UNIQUE KEY uq_tmpl_worker (template_id, worker_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS alerts (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      type        VARCHAR(20)  NOT NULL,
+      worker_id   INT          DEFAULT NULL,
+      worker_name VARCHAR(150) DEFAULT NULL,
+      phone       VARCHAR(30)  DEFAULT NULL,
+      task_id     INT          DEFAULT NULL,
+      message     TEXT         DEFAULT NULL,
+      is_read     TINYINT      NOT NULL DEFAULT 0,
+      created_at  DATETIME     NOT NULL DEFAULT NOW()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
   console.log('[DB] \u2705 Schema migrations applied');
+
 
   // Ensure help_sessions table exists (tracks workers awaiting HELP menu reply)
   await db.execute(`

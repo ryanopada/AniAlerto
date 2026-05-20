@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { useNavigate, Link } from "react-router";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { AlertCircle, LogIn, Loader2, ShieldCheck } from "lucide-react";
-import { motion } from "motion/react";
+import { AlertCircle, LogIn, Loader2, ShieldCheck, Leaf, ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { flushSync } from "react-dom";
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -23,157 +23,206 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError("");
     setIsLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 700));
 
-    if (username && password) {
-      if (username === "admin" && password === "@dmin123") {
-        onLogin();
-        navigate("/admin/dashboard");
-      } else {
-        setError("Invalid username or password");
-      }
-    } else {
-      setError("Please enter both username and password");
+    if (!username || !password) {
+      setError("Please enter both username and password.");
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    if (username === "admin" && password === "@dmin123") {
+      // flushSync ensures auth state is committed BEFORE navigate() fires,
+      // preventing the protected route guard from bouncing back to /admin/login.
+      flushSync(() => {
+        localStorage.setItem("anialerto_auth", "true");
+        onLogin();
+      });
+      navigate("/admin/dashboard", { replace: true });
+    } else {
+      setError("Invalid username or password. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f3faf2] bg-cover bg-center px-4 py-16"
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cover bg-center px-4 py-16"
       style={{ backgroundImage: "url('/anialerto-login-bg.svg')" }}
     >
+<<<<<<< HEAD
       <div className="absolute inset-0 bg-gradient-to-br from-[#2f6b3d]/55 via-[#4b8a46]/45 to-[#7abf53]/50" />
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="relative z-10 w-full max-w-md"
+=======
+      {/* Semi-transparent green tint overlay */}
+      <div className="absolute inset-0" style={{ backgroundColor: "rgba(45, 90, 30, 0.45)" }} />
+
+      {/* Decorative leaf accents */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <Leaf className="absolute top-[8%] left-[5%] h-32 w-32 text-white/10 rotate-[-20deg]" />
+        <Leaf className="absolute top-[15%] right-[8%] h-24 w-24 text-white/8 rotate-[35deg]" />
+        <Leaf className="absolute bottom-[12%] left-[10%] h-40 w-40 text-white/8 rotate-[15deg]" />
+        <Leaf className="absolute bottom-[8%] right-[5%] h-28 w-28 text-white/10 rotate-[-30deg]" />
+      </div>
+
+      {/* Back to site link */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
+>>>>>>> be8fadc766a927dc3e883956b2322a22ddb8dc17
       >
+        <ArrowLeft className="h-4 w-4" />
+        Back to site
+      </Link>
+
+      {/* Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-[420px]"
+      >
+        {/* Logo + heading */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center mb-8"
+          transition={{ delay: 0.1, duration: 0.45 }}
+          className="text-center mb-6"
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.35, duration: 0.45, type: "spring", stiffness: 180 }}
-            className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-[#d9ead6] bg-white shadow-2xl shadow-[#a4c692]/20"
+            transition={{ delay: 0.2, duration: 0.4, type: "spring", stiffness: 200 }}
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-2xl ring-1 ring-white/20"
           >
             <img
               src="/anialerto-logo2.svg"
               alt="AniAlerto Logo"
-              className="h-14 w-14 object-contain"
+              className="h-10 w-10 object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/anialerto-logo.svg"; }}
             />
           </motion.div>
-          <h1 className="text-4xl font-bold mb-2 text-white">
-            AniAlerto Admin
-          </h1>
-          <p className="text-white text-lg">Sign in to manage farm alerts and SMS activity</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">AniAlerto Admin</h1>
+          <p className="mt-1 text-white/75 text-sm">Sign in to manage farm alerts and SMS activity</p>
         </motion.div>
 
+        {/* Form card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
+          transition={{ delay: 0.2, duration: 0.45 }}
         >
-          <Card className="overflow-hidden rounded-[1.5rem] border border-[#d9ead6] bg-gradient-to-br from-white/95 to-[#f8fdf3]/95 shadow-2xl shadow-[#2f4a25]/20 backdrop-blur-md">
-            <CardHeader className="border-b border-[#e5ede0] bg-[#f5fbf3]/90 text-center">
-              <CardTitle className="flex items-center justify-center gap-2 text-xl text-[#3d5a36]">
-                <ShieldCheck className="w-5 h-5 text-[#5d8044]" />
+          <div className="overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/8">
+            {/* Top accent bar */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-[#5d8044] via-[#7aac58] to-[#a8c97a]" />
+
+            {/* Header */}
+            <div className="flex flex-col items-center px-8 pt-7 pb-5 text-center border-b border-gray-100">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                <ShieldCheck className="h-5 w-5 text-[#5d8044]" />
                 Admin Login
-              </CardTitle>
-              <CardDescription className="text-[#556d4a]">
-                Enter your credentials to access the administrative dashboard
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4, duration: 0.5 }}
-                  className="space-y-2"
-                >
-                  <Label htmlFor="username" className="text-sm font-medium text-[#3d5a36]">Username</Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="Enter username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="rounded-xl border-[#d9ead6] bg-white px-3 py-3 text-[#3d5a36] shadow-sm transition-all duration-200 placeholder:text-[#7b8f6f] focus:border-[#5d8044] focus:ring-[#5d8044]"
-                    disabled={isLoading}
-                  />
-                </motion.div>
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">Enter your credentials to access the dashboard</p>
+            </div>
 
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                  className="space-y-2"
-                >
-                  <Label htmlFor="password" className="text-sm font-medium text-[#3d5a36]">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="rounded-xl border-[#d9ead6] bg-white px-3 py-3 text-[#3d5a36] shadow-sm transition-all duration-200 placeholder:text-[#7b8f6f] focus:border-[#5d8044] focus:ring-[#5d8044]"
-                    disabled={isLoading}
-                  />
-                </motion.div>
+            {/* Form body */}
+            <form onSubmit={handleSubmit} className="px-8 py-6 space-y-4">
+              {/* Username */}
+              <div className="space-y-1.5">
+                <Label htmlFor="login-username" className="text-sm font-medium text-gray-700">
+                  Username
+                </Label>
+                <Input
+                  id="login-username"
+                  type="text"
+                  placeholder="admin"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="h-10 rounded-lg border-gray-200 bg-gray-50 px-3 text-gray-900 placeholder:text-gray-400 focus:border-[#5d8044] focus:bg-white focus:ring-1 focus:ring-[#5d8044] transition-all"
+                  disabled={isLoading}
+                  autoFocus
+                  autoComplete="username"
+                />
+              </div>
 
+              {/* Password */}
+              <div className="space-y-1.5">
+                <Label htmlFor="login-password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-10 rounded-lg border-gray-200 bg-gray-50 px-3 text-gray-900 placeholder:text-gray-400 focus:border-[#5d8044] focus:bg-white focus:ring-1 focus:ring-[#5d8044] transition-all"
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                />
+              </div>
+
+              {/* Error */}
+              <AnimatePresence>
                 {error && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+                    key="error"
+                    initial={{ opacity: 0, y: -4, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -4, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
                   >
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     <span>{error}</span>
                   </motion.div>
                 )}
+              </AnimatePresence>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                >
-                  <Button
-                    type="submit"
-                    className="w-full rounded-xl border border-[#7a9b5c] bg-[#5d8044] py-3 font-medium text-white shadow-lg shadow-[#5d8044]/20 transition-all duration-200 hover:bg-[#4a6b36] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Signing In...
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="w-4 h-4 mr-2" />
-                        Login
-                      </>
-                    )}
-                  </Button>
-                </motion.div>
-              </form>
-            </CardContent>
-          </Card>
+              {/* Submit */}
+              <Button
+                type="submit"
+                className="mt-1 w-full h-10 rounded-lg bg-[#5d8044] font-semibold text-white shadow-sm transition-all hover:bg-[#4a6b36] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign in
+                  </>
+                )}
+              </Button>
+
+              {/* Secure badge */}
+              <div className="flex items-center justify-center gap-1.5 pt-1 text-xs text-gray-400">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#5d8044]" />
+                <span>Secure admin access · AniAlerto</span>
+              </div>
+            </form>
+          </div>
         </motion.div>
 
-        <motion.p
+        {/* Bottom badge */}
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.8, duration: 0.5 }}
-          className="mt-6 text-center text-sm text-white"
+          transition={{ delay: 0.5, duration: 0.4 }}
+          className="mt-4 flex justify-center"
         >
-          Secure access to AniAlerto administrative features
-        </motion.p>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm ring-1 ring-white/20">
+            <Leaf className="h-3 w-3" />
+            AniAlerto Farm Management System
+          </span>
+        </motion.div>
       </motion.div>
     </div>
   );

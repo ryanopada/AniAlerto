@@ -86,13 +86,37 @@ try {
     $stmt->execute($params);
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // ── Global summary stats (same filters, no pagination) ────────────────────
+    // These power the cards — must reflect the WHOLE dataset, not just one page.
+    $sumStmt = $db->prepare("
+        SELECT
+            COUNT(*)                                                                   AS total,
+            SUM(CASE WHEN UPPER(TRIM(sl.response_text)) = 'DONE'  THEN 1 ELSE 0 END) AS done_count,
+            SUM(CASE WHEN UPPER(TRIM(sl.response_text)) = 'DELAY' THEN 1 ELSE 0 END) AS delay_count,
+            SUM(CASE WHEN UPPER(TRIM(sl.response_text)) = 'HELP'  THEN 1 ELSE 0 END) AS help_count,
+            SUM(CASE WHEN UPPER(TRIM(sl.response_text)) = 'PEST'  THEN 1 ELSE 0 END) AS pest_count,
+            SUM(CASE WHEN sl.response_text IS NULL                THEN 1 ELSE 0 END) AS pending_count
+        FROM sms_logs sl WHERE $where
+    ");
+    $sumStmt->execute($params);
+    $sum = $sumStmt->fetch(PDO::FETCH_ASSOC);
+
     echo json_encode([
         'data'        => $logs,
         'total'       => $total,
         'page'        => $page,
         'per_page'    => $perPage,
         'total_pages' => (int)ceil($total / $perPage),
+        'summary'     => [
+            'total'   => (int)($sum['total']         ?? 0),
+            'done'    => (int)($sum['done_count']    ?? 0),
+            'delay'   => (int)($sum['delay_count']   ?? 0),
+            'help'    => (int)($sum['help_count']    ?? 0),
+            'pest'    => (int)($sum['pest_count']    ?? 0),
+            'pending' => (int)($sum['pending_count'] ?? 0),
+        ],
     ]);
+
 
 } catch (Exception $e) {
     echo json_encode(['error' => $e->getMessage()]);

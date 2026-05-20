@@ -136,9 +136,9 @@ if ($method == 'POST') {
         $templateId = $isUpdate ? intval($data['id']) : $conn->insert_id;
 
         // ── Snapshot recipients at save time ──────────────────────────────────
-        // Only for templates targeting a specific batch with a send datetime.
-        // "All batches" templates (no batch_id) remain dynamic (resolved at send time).
-        if ($batchId && $sendDT) {
+        // This ensures that only workers active AT THE TIME THE TEMPLATE WAS SAVED
+        // will receive it. New workers added later are explicitly excluded.
+        if ($sendDT) {
             // On UPDATE: only snapshot if none exists yet — preserve the original
             // recipient list so new workers added later aren't included.
             $hasSnapshot = false;
@@ -148,12 +148,17 @@ if ($method == 'POST') {
             }
 
             if (!$hasSnapshot) {
-                // New template or first-time snapshot: record current active batch workers
-                $wRes = $conn->query(
-                    "SELECT w.id FROM workers w
-                     JOIN batch_workers bw ON w.id = bw.worker_id
-                     WHERE bw.batch_id = $batchId AND w.status = 'Active'"
-                );
+                // New template or first-time snapshot: record current active workers
+                $wQuery = "";
+                if ($batchId) {
+                    $wQuery = "SELECT w.id FROM workers w
+                               JOIN batch_workers bw ON w.id = bw.worker_id
+                               WHERE bw.batch_id = $batchId AND w.status = 'Active'";
+                } else {
+                    $wQuery = "SELECT id FROM workers WHERE status = 'Active'";
+                }
+                
+                $wRes = $conn->query($wQuery);
                 if ($wRes && $wRes->num_rows > 0) {
                     $ins = $conn->prepare(
                         "INSERT IGNORE INTO message_recipients (template_id, worker_id) VALUES (?, ?)"
@@ -165,8 +170,6 @@ if ($method == 'POST') {
                     $ins->close();
                 }
             }
-            // If snapshot already exists on UPDATE, keep it as-is.
-            // New workers added after template creation won't be added.
         }
 
         echo json_encode(["status" => "success", "id" => $templateId]);

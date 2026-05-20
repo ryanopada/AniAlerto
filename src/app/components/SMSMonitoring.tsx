@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -7,9 +7,36 @@ import { Badge } from "./ui/badge";
 import {
   MessageSquare, CheckCircle, Clock, AlertCircle, Search,
   RefreshCw, Loader2, ChevronLeft, ChevronRight, Calendar,
-  Inbox, AlertTriangle, Phone
+  Inbox, AlertTriangle, Phone, Wifi
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+
+// ── Animated counter ────────────────────────────────────────────────────────────────────────────
+function AnimatedCount({ value }: { value: number }) {
+  const [display, setDisplay] = useState(value);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    const start = display;
+    const end   = value;
+    if (start === end) return;
+    const duration = 600; // ms
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + (end - start) * ease));
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <>{display}</>;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface SMSLog {
@@ -36,8 +63,9 @@ const DATE_FILTER_OPTIONS: { label: string; value: DateFilter }[] = [
   { label: "Custom",   value: "custom" },
 ];
 
-const PER_PAGE = 20;
-const API_URL  = "http://localhost/anialerto-backend/src/get_sms_logs.php";
+const PER_PAGE  = 20;
+const API_URL   = "http://localhost/anialerto-backend/src/get_sms_logs.php";
+const STATS_URL = "http://localhost/anialerto-backend/src/get_sms_stats.php";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function formatDateTime(dt: string | null): string {
@@ -81,6 +109,10 @@ export function SMSMonitoring() {
   const [dateFilter,  setDateFilter]  = useState<DateFilter>("all");
   const [dateFrom,    setDateFrom]    = useState("");
   const [dateTo,      setDateTo]      = useState("");
+  // ── Global stats from API (accurate across ALL pages, not just the current one)
+  const [summary,     setSummary]     = useState({ total: 0, done: 0, delay: 0, help: 0, pest: 0, pending: 0 });
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
 
   // Debounce search input
   useEffect(() => {
@@ -109,6 +141,7 @@ export function SMSMonitoring() {
       setLogs(json.data        ?? []);
       setTotal(json.total      ?? 0);
       setTotalPages(json.total_pages ?? 1);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error("Error fetching SMS logs:", err);
     } finally {
@@ -118,19 +151,37 @@ export function SMSMonitoring() {
   }, [page, debouncedSearch, dateFilter, dateFrom, dateTo]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
-  // Auto-refresh every 30 seconds
+  // Auto-refresh logs every 15 s
   useEffect(() => {
-    const id = setInterval(() => fetchLogs(true), 30_000);
+    const id = setInterval(() => fetchLogs(true), 15_000);
     return () => clearInterval(id);
   }, [fetchLogs]);
 
-  const stats = {
-    total:   total,
-    done:    logs.filter(l => l.response_text?.toUpperCase() === "DONE").length,
-    delay:   logs.filter(l => l.response_text?.toUpperCase() === "DELAY").length,
-    help:    logs.filter(l => l.response_text?.toUpperCase() === "HELP").length,
-    pending: logs.filter(l => !l.response_text).length,
-  };
+  // ── Dedicated stats poller — mirrors the active filter so cards match table ──
+  const fetchStats = useCallback(async () => {
+    try {
+      const p = new URLSearchParams({ date_filter: dateFilter });
+      if (debouncedSearch)              p.set('search',    debouncedSearch);
+      if (dateFilter === 'custom') {
+        if (dateFrom) p.set('date_from', dateFrom);
+        if (dateTo)   p.set('date_to',   dateTo);
+      }
+      const res  = await fetch(`${STATS_URL}?${p}`);
+      const json = await res.json();
+      if (!json.error) {
+        setSummary(json);
+        setLastUpdated(new Date());
+      }
+    } catch { /* silent */ }
+  }, [dateFilter, debouncedSearch, dateFrom, dateTo]);
+
+  // Re-fetch stats immediately when filter changes, then every 10 s
+  useEffect(() => {
+    fetchStats();
+    const id = setInterval(fetchStats, 10_000);
+    return () => clearInterval(id);
+  }, [fetchStats]);
+
 
   const workerName = (log: SMSLog) =>
     log.worker_name || log.phone || "—";
@@ -160,26 +211,58 @@ export function SMSMonitoring() {
 
       {/* ── Stats Cards ── */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-5 gap-3"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
       >
-        {[
-          { label: "Total",   value: total,        color: "text-[#3d5a36]", bg: "from-white to-[#f8fdf3]" },
-          { label: "Done",    value: stats.done,   color: "text-emerald-600", bg: "from-white to-emerald-50" },
-          { label: "Delay",   value: stats.delay,  color: "text-amber-600",   bg: "from-white to-amber-50" },
-          { label: "Help",    value: stats.help,   color: "text-red-600",     bg: "from-white to-red-50" },
-          { label: "Pending", value: stats.pending,color: "text-gray-500",    bg: "from-white to-gray-50" },
-        ].map(s => (
-          <motion.div key={s.label} whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
-            <Card className="rounded-2xl border border-[#d9ead6] shadow-lg bg-gradient-to-br from-white to-[#f8fdf3]">
-              <CardContent className="pt-5 pb-4 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7b8f6f]">{s.label}</p>
-                <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+        {([
+          { label: "Total",   value: summary.total,   icon: MessageSquare, color: "text-[#3d5a36]",    bg: "from-white to-[#f8fdf3]",  border: "border-[#c8dfc4]", dot: "bg-[#5d8044]"   },
+          { label: "Done",    value: summary.done,    icon: CheckCircle,   color: "text-emerald-600", bg: "from-white to-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
+          { label: "Delay",   value: summary.delay,   icon: Clock,         color: "text-amber-600",   bg: "from-white to-amber-50",   border: "border-amber-200",   dot: "bg-amber-500"   },
+          { label: "Help",    value: summary.help,    icon: AlertCircle,   color: "text-red-600",     bg: "from-white to-red-50",     border: "border-red-200",     dot: "bg-red-500"     },
+          { label: "Pending", value: summary.pending, icon: Clock,         color: "text-gray-500",    bg: "from-white to-gray-50",    border: "border-gray-200",    dot: "bg-gray-400"    },
+        ] as const).map((s, idx) => {
+          const Icon = s.icon;
+          // On mobile (2-col grid), the 5th card (Pending) spans 2 cols to center it
+          const spanClass = idx === 4 ? "col-span-2 sm:col-span-1" : "";
+          return (
+            <motion.div key={s.label} className={spanClass} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 320, damping: 20 }}>
+              <Card className={`rounded-2xl border shadow-lg bg-gradient-to-br ${s.bg} ${s.border} h-full`}>
+                <CardContent className="pt-4 pb-4 px-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#7b8f6f]">{s.label}</span>
+                    <span className={`h-2 w-2 rounded-full ${s.dot} ${refreshing ? 'animate-pulse' : ''}`} />
+                  </div>
+                  <div className="flex items-end justify-between gap-2">
+                    <p className={`text-3xl font-extrabold tabular-nums ${s.color}`}>
+                      <AnimatedCount value={s.value} />
+                    </p>
+                    <Icon className={`h-6 w-6 opacity-20 mb-0.5 ${s.color}`} />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
       </motion.div>
+
+      {/* Live indicator */}
+      <div className="flex items-center gap-2 -mt-1">
+        <Wifi className={`h-3.5 w-3.5 ${refreshing ? 'text-[#5d8044] animate-pulse' : 'text-[#7b8f6f]'}`} />
+        <span className="text-xs text-[#7b8f6f]">
+          {refreshing ? 'Updating...' : lastUpdated
+            ? `Updated ${lastUpdated.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+            : 'Loading...'}
+          {' · '}
+          <span className="font-semibold text-[#556d4a]">
+            {dateFilter === 'all'    ? 'All Time'
+           : dateFilter === 'today'  ? 'Today'
+           : dateFilter === '7days'  ? 'Last 7 Days'
+           : dateFilter === '30days' ? 'Last 30 Days'
+           : `${dateFrom || '?'} → ${dateTo || '?'}`}
+          </span>
+          {' · auto-refreshes every 10s'}
+        </span>
+      </div>
 
       {/* ── Filters ── */}
       <motion.div

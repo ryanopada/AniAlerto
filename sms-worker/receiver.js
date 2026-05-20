@@ -145,8 +145,8 @@ async function clearHelpSession(normalizedPhone, workerId) {
 async function createAlert(type, workerId, workerName, phone, taskId, message) {
   try {
     await db.execute(
-      `INSERT INTO alerts (type, worker_id, worker_name, phone, task_id, message, is_read, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, NOW())`,
+      `INSERT INTO alerts (type, worker_id, worker_name, phone, task_id, message, done_reply, is_read, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NULL, 0, NOW())`,
       [type, workerId || null, workerName, phone, taskId || null, message]
     );
     console.log(`[Receiver] 🔔 Alert [${type}]: ${message.substring(0, 60)}`);
@@ -200,11 +200,47 @@ async function handleDone(workerId, workerName, phone) {
   } else {
     console.log(`[Receiver] ℹ️  No pending task for DONE from ${workerName}`);
   }
+
+  // ★ Update open DELAY alerts: set done_reply + update message (admin must manually dismiss)
+  const category  = task?.category  || 'General';
+  const batchName = task?.batch_name || '';
+  const taskId    = task?.id         || null;
+  const doneEN = `Worker ${workerName} replied DONE for ${category} task` +
+                 (batchName ? ` in ${batchName}` : '') +
+                 (taskId    ? ` (Task #${taskId})` : '') + '.';
+  const doneTL = `Sumagot ng DONE si ${workerName} para sa gawain ng ${category}` +
+                 (batchName ? ` sa ${batchName}` : '') +
+                 (taskId    ? ` (Gawain #${taskId})` : '') + '.';
+  const doneMsg = doneEN + '\n\n' + doneTL;
+  try {
+    if (taskId) {
+      const [res] = await db.execute(
+        `UPDATE alerts SET done_reply=?, message=?
+         WHERE type='DELAY' AND worker_id=? AND task_id=? AND is_read=0`,
+        [workerName, doneMsg, workerId, taskId]
+      );
+      if (res.affectedRows > 0)
+        console.log(`[Receiver] 🔔 DELAY alert updated → DONE replied by ${workerName}`);
+    } else {
+      const [res] = await db.execute(
+        `UPDATE alerts SET done_reply=?, message=?
+         WHERE type='DELAY' AND (worker_id=? OR phone=? OR ${phoneMatchExpr('phone')}=?) AND is_read=0
+         ORDER BY created_at DESC LIMIT 1`,
+        [workerName, doneMsg, workerId, phone, phoneKey(phone)]
+      );
+      if (res.affectedRows > 0)
+        console.log(`[Receiver] 🔔 DELAY alert (no task) updated → DONE replied by ${workerName}`);
+    }
+  } catch (err) {
+    console.error(`[Receiver] ❌ Could not update DELAY alerts: ${err.message}`);
+  }
+
   await queueAutoReply(phone, AUTO_REPLIES.DONE, workerId);
 }
 
 async function handleDelay(workerId, workerName, phone) {
   const task = await getTaskContext(workerId);
+
   if (task) {
     await db.execute(
       `UPDATE scheduled_tasks SET status='Delayed', updated_at=NOW() WHERE id=?`,
@@ -212,37 +248,62 @@ async function handleDelay(workerId, workerName, phone) {
     );
     console.log(`[Receiver] ⏰ Task ${task.id} → Delayed`);
 
-    // Confirmation SMS first
-    await queueAutoReply(phone, AUTO_REPLIES.DELAY, workerId);
-
-    // Follow-up reminder
+    const instrEN = {
+      'Irrigation':    'Check water source & irrigation lines.',
+      'Fertilization': 'Apply fertilizer evenly across the field.',
+      'Pest Control':  'Inspect area, wear protective gear, and spray evenly.',
+      'Harvest':       'Ensure crops are mature and prepare harvesting tools.',
+      'General':       'Complete your assigned task as soon as possible.',
+    };
+    const instrTL = {
+      'Irrigation':    'Suriin ang tubig at linya ng patubig.',
+      'Fertilization': 'Mag-apply ng pataba nang pantay sa bukid.',
+      'Pest Control':  'Suriin ang lugar, magsuot ng proteksyon, mag-spray.',
+      'Harvest':       'Tiyaking hinog na. Ihanda ang mga kagamitan.',
+      'General':       'Kumpletuhin ang gawain sa lalong madaling panahon.',
+    };
     const urgentCategories = ['Irrigation', 'Pest Control'];
-    const isHarvest = task.category === 'Harvest';
-    const urgentTag = urgentCategories.includes(task.category) ? 'URGENT: ' : '';
-    const followUp =
-      `${urgentTag}AniAlerto Reminder: You reported a delay on your ${task.category || 'farming'} task in ${task.batch_name || 'your batch'}. Please complete it as soon as possible and reply DONE when done.\n\n` +
-      `${urgentTag}Paalala ng AniAlerto: Nag-ulat ka ng pagka-delay sa iyong gawaing ${task.category || 'pagsasaka'} sa ${task.batch_name || 'inyong batch'}. Mangyaring tapusin ito sa lalong madaling panahon at sumagot ng DONE kapag tapos na.\n\n` +
-      `Reply only: DONE, DELAY, HELP, PEST\nSumagot lamang ng: DONE, DELAY, HELP, PEST`;
-    await queueAutoReply(phone, followUp, workerId);
+    const cat      = task.category || 'General';
+    const batch    = task.batch_name || '';
+    const iEN      = instrEN[cat] || instrEN['General'];
+    const iTL      = instrTL[cat] || instrTL['General'];
+    const urgTag   = urgentCategories.includes(cat) ? 'URGENT: ' : '';
+    const ctx      = batch ? ` in ${batch}` : '';
+    const ctxTL    = batch ? ` sa ${batch}` : '';
+    
+    // Split into English and Tagalog to stay safely under 160-character SMS limit
+    const followUpEN = `${urgTag}AniAlerto: Your ${cat} task${ctx} is delayed. ${iEN} Reply DONE when finished.`;
+    const followUpTL = `${urgTag}Paalala: Naantala ang iyong ${cat} gawain${ctxTL}. ${iTL} Sumagot ng DONE.`;
+    
+    await queueAutoReply(phone, followUpEN, workerId);
+    await queueAutoReply(phone, followUpTL, workerId);
 
-    // ★ FIX: Always create a dashboard checklist alert for DELAY (was Harvest-only)
-    const batchInfo = task.batch_name ? ` in ${task.batch_name}` : '';
-    const alertMsg  = `${workerName} (${phone}) reported DELAY on ${task.category || 'farming'} task${batchInfo}. Task #${task.id}.`;
-    await createAlert('DELAY', workerId, workerName, phone, task.id, alertMsg);
-
-    // Harvest delay → additionally notify admin by SMS
-    if (isHarvest) {
+    if (task.category === 'Harvest') {
       const adminPhone = await getAdminPhone();
       if (adminPhone) {
-        await queueAutoReply(adminPhone, `AniAlerto Alert: ${workerName} reported HARVEST DELAY in ${task.batch_name}. Task #${task.id}. Follow up immediately.`, null);
+        await queueAutoReply(adminPhone,
+          `AniAlerto Alert: ${workerName} reported HARVEST DELAY in ${batch}. Task #${task.id}. Follow up immediately.`,
+          null);
       }
     }
   } else {
-    // No pending task — still confirm, but no alert (nothing to track)
+    console.log(`[Receiver] ℹ️  No pending task for DELAY from ${workerName} — alert still created`);
+    // Only send the generic DELAY auto-reply if there is no active task
     await queueAutoReply(phone, AUTO_REPLIES.DELAY, workerId);
-    console.log(`[Receiver] ℹ️  No pending task for DELAY from ${workerName}`);
   }
+
+  // ── Always create dashboard checklist alert ─────────────
+
+  const batchInfo = task?.batch_name ? ` in ${task.batch_name}` : '';
+  const taskInfo  = task
+    ? ` on ${task.category || 'farming'} task${batchInfo}. Task #${task.id}.`
+    : ' (no active task).';
+  const alertMsg  = `${workerName} (${phone}) reported DELAY${taskInfo}` +
+                    `\n\nNag-ulat ng DELAY si ${workerName} (${phone})${batchInfo}.`;
+  await createAlert('DELAY', workerId, workerName, phone, task?.id || null, alertMsg);
 }
+
+
 
 async function handleHelp(workerId, workerName, phone) {
   // ★ FIX: Guard against double-menu. If a session already exists for this worker,
