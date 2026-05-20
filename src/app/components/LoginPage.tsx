@@ -50,16 +50,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cover bg-center px-4 py-16"
       style={{ backgroundImage: "url('/anialerto-login-bg.svg')" }}
     >
-<<<<<<< HEAD
+      {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#2f6b3d]/55 via-[#4b8a46]/45 to-[#7abf53]/50" />
-      <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-md"
-=======
-      {/* Semi-transparent green tint overlay */}
-      <div className="absolute inset-0" style={{ backgroundColor: "rgba(45, 90, 30, 0.45)" }} />
 
       {/* Decorative leaf accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -73,7 +65,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <Link
         to="/"
         className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
->>>>>>> be8fadc766a927dc3e883956b2322a22ddb8dc17
       >
         <ArrowLeft className="h-4 w-4" />
         Back to site
