@@ -43,8 +43,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f3faf2] bg-cover bg-center px-4 py-16"
       style={{ backgroundImage: "url('/anialerto-login-bg.svg')" }}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#556b2f]/62 via-[#5d8044]/48 to-[#91b554]/54" />
-      <div className="absolute inset-0 bg-[#173114]/18" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2f6b3d]/55 via-[#4b8a46]/45 to-[#7abf53]/50" />
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
