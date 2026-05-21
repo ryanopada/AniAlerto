@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Layers, Users, CheckCircle, Bell, Loader2, Send, AlertCircle, X, MessageSquare } from "lucide-react";
+import { Layers, Users, CheckCircle, Bell, Loader2, Send, AlertCircle, X, MessageSquare, RefreshCw } from "lucide-react";
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { motion, AnimatePresence } from "motion/react";
 import { CropCalendar } from "./CropCalendar";
@@ -9,7 +9,7 @@ import { CropCalendar } from "./CropCalendar";
 interface Alert {
   id: number; type: string; worker_id: number | null; worker_name: string | null;
   phone: string | null; task_id: number | null; message: string | null;
-  done_reply: string | null; is_read: number; created_at: string;
+  done_reply: string | null; delay_reason: string | null; is_read: number; created_at: string;
 }
 interface DashboardProps {
   alerts: Alert[];
@@ -19,8 +19,8 @@ interface DashboardProps {
 export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) {
   const [dbStats,          setDbStats]          = useState<any>(null);
   const [loading,          setLoading]          = useState(true);
-  const [schedulerRunning, setSchedulerRunning] = useState(false);
-  const [schedulerResult,  setSchedulerResult]  = useState<{ type: "success"|"error"; message: string; details?: string[] }|null>(null);
+  const [workerRestarting, setWorkerRestarting] = useState(false);
+  const [workerRestartResult,  setWorkerRestartResult]  = useState<{ type: "success"|"error"; message: string; details?: string[] }|null>(null);
   const [localAlerts,      setLocalAlerts]      = useState<Alert[]>(propAlerts);
 
   // Sync prop alerts into local state
@@ -80,22 +80,22 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
     } catch (e) { console.error(e); }
   };
 
-  const handleRunScheduler = async () => {
-    setSchedulerRunning(true); setSchedulerResult(null);
+  const handleRestartWorker = async () => {
+    setWorkerRestarting(true); setWorkerRestartResult(null);
     try {
-      const res  = await fetch("http://localhost/anialerto-backend/src/run_scheduler.php", { method: "POST" });
+      const res  = await fetch("http://localhost/anialerto-backend/src/restart_worker.php", { method: "POST" });
       const data = await res.json();
       if (data.status === "success") {
-        setSchedulerResult({ type: "success", message: data.message, details: data.data?.details || [] });
+        setWorkerRestartResult({ type: "success", message: data.message, details: data.data?.details || [] });
         fetchStats();
       } else {
-        setSchedulerResult({ type: "error", message: data.message || "Scheduler failed" });
+        setWorkerRestartResult({ type: "error", message: data.message || "Restart failed" });
       }
     } catch {
-      setSchedulerResult({ type: "error", message: "Cannot connect to backend. Is XAMPP running?" });
+      setWorkerRestartResult({ type: "error", message: "Cannot connect to backend. Is XAMPP running?" });
     } finally {
-      setSchedulerRunning(false);
-      setTimeout(() => setSchedulerResult(null), 10_000);
+      setWorkerRestarting(false);
+      setTimeout(() => setWorkerRestartResult(null), 10_000);
     }
   };
 
@@ -121,9 +121,9 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
         </div>
         <div className="flex items-center gap-3">
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-            <Button onClick={handleRunScheduler} disabled={schedulerRunning}
+            <Button onClick={handleRestartWorker} disabled={workerRestarting}
               className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg border border-[#7a9b5c]">
-              {schedulerRunning ? <><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Running...</> : <><Send className="h-4 w-4 mr-2"/>Run Scheduler</>}
+              {workerRestarting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Restarting...</> : <><RefreshCw className="h-4 w-4 mr-2"/>Restart SMS Service</>}
             </Button>
           </motion.div>
           <motion.div className="bg-[#5d8044]/10 text-[#5d8044] px-4 py-2 rounded-full text-sm font-medium border border-[#5d8044]/20"
@@ -133,24 +133,24 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
         </div>
       </motion.div>
 
-      {/* Scheduler result */}
+      {/* Restart result */}
       <AnimatePresence>
-        {schedulerResult && (
+        {workerRestartResult && (
           <motion.div initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, y: -10, height: 0 }} transition={{ duration: 0.3 }}>
-            <Card className={`rounded-[1rem] border shadow-md ${schedulerResult.type === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+            <Card className={`rounded-[1rem] border shadow-md ${workerRestartResult.type === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    {schedulerResult.type === "success" ? <CheckCircle className="h-5 w-5 text-green-600 mt-0.5"/> : <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>}
+                    {workerRestartResult.type === "success" ? <CheckCircle className="h-5 w-5 text-green-600 mt-0.5"/> : <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>}
                     <div>
-                      <p className={`font-medium text-sm ${schedulerResult.type === "success" ? "text-green-800" : "text-red-800"}`}>{schedulerResult.message}</p>
-                      {schedulerResult.details && schedulerResult.details.length > 0 && (
-                        <ul className="mt-1 space-y-0.5">{schedulerResult.details.map((d, i) => <li key={i} className="text-xs text-green-700">• {d}</li>)}</ul>
+                      <p className={`font-medium text-sm ${workerRestartResult.type === "success" ? "text-green-800" : "text-red-800"}`}>{workerRestartResult.message}</p>
+                      {workerRestartResult.details && workerRestartResult.details.length > 0 && (
+                        <ul className="mt-1 space-y-0.5">{workerRestartResult.details.map((d, i) => <li key={i} className="text-xs text-green-700">• {d}</li>)}</ul>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => setSchedulerResult(null)} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4"/></button>
+                  <button onClick={() => setWorkerRestartResult(null)} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4"/></button>
                 </div>
               </CardContent>
             </Card>
@@ -240,6 +240,12 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                           {msgTL && <p className="text-xs text-[#7b8f6f] mt-0.5 italic">{msgTL}</p>}
                           {alert.worker_name && (
                             <p className="text-xs text-[#7b8f6f] mt-0.5">Worker: {alert.worker_name} · {alert.phone}</p>
+                          )}
+                          {alert.delay_reason && (
+                            <div className="mt-2 bg-amber-100/50 p-2 rounded-md border border-amber-200">
+                              <span className="text-xs font-bold text-amber-800">Reason for Delay: </span>
+                              <span className="text-sm text-amber-900">{alert.delay_reason}</span>
+                            </div>
                           )}
                           <p className={`text-[10px] mt-1 font-medium ${
                             hasDone ? 'text-emerald-600' : 'text-amber-600'

@@ -32,6 +32,7 @@ try {
         LEFT JOIN farm_batches fb ON mt.batch_id = fb.id
         WHERE mt.active = 1
           AND mt.scheduled_send_datetime IS NOT NULL
+          AND DATE(mt.scheduled_send_datetime) >= CURDATE()
           AND mt.scheduled_send_datetime <= :now
     ");
     $tStmt->execute([':now' => $nowDT]);

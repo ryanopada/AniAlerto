@@ -21,12 +21,14 @@ $db->exec("
         task_id     INT          DEFAULT NULL,
         message     TEXT         DEFAULT NULL,
         done_reply  VARCHAR(255) DEFAULT NULL,
+        delay_reason VARCHAR(255) DEFAULT NULL,
         is_read     TINYINT      NOT NULL DEFAULT 0,
         created_at  DATETIME     NOT NULL DEFAULT NOW()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ");
 // Migrate existing tables
 try { $db->exec("ALTER TABLE alerts ADD COLUMN IF NOT EXISTS done_reply VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) { /* column may already exist */ }
+try { $db->exec("ALTER TABLE alerts ADD COLUMN IF NOT EXISTS delay_reason VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) { /* column may already exist */ }
 
 try {
     // ── POST: mark alert as resolved ─────────────────────────────────────────
@@ -63,7 +65,7 @@ try {
         : "";
 
     $stmt = $db->prepare(
-        "SELECT id, type, worker_id, worker_name, phone, task_id, message, done_reply, is_read, created_at
+        "SELECT id, type, worker_id, worker_name, phone, task_id, message, done_reply, delay_reason, is_read, created_at
            FROM alerts
           WHERE is_read = 0
             $ageSql

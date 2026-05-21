@@ -28,6 +28,7 @@ async function runScheduler() {
         AND mt.is_test = 0
         AND mt.queued_at IS NULL
         AND mt.scheduled_send_datetime IS NOT NULL
+        AND DATE(mt.scheduled_send_datetime) >= CURDATE()
         AND mt.scheduled_send_datetime <= ?
     `, [nowDT]);
 

@@ -106,6 +106,15 @@ async function main() {
       INDEX idx_created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS delay_sessions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      worker_id INT DEFAULT NULL,
+      phone VARCHAR(30) NOT NULL,
+      created_at DATETIME DEFAULT NOW()
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
   const [qRows] = await db.execute(
     `SELECT COUNT(*) as c FROM sms_queue WHERE status IN ('Queued','Retry')`
   );

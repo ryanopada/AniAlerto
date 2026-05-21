@@ -141,6 +141,38 @@ async function clearHelpSession(normalizedPhone, workerId) {
   );
 }
 
+// ─── Delay Session Helpers ────────────────────────────────────────────────────
+async function getDelaySession(normalizedPhone, workerId) {
+  const key = phoneKey(normalizedPhone);
+  const [rows] = await db.execute(
+    `SELECT id FROM delay_sessions
+     WHERE (${phoneMatchExpr('phone')} = ? OR phone = ? OR worker_id = ?)
+       AND created_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+     ORDER BY created_at DESC LIMIT 1`,
+    [key, normalizedPhone, workerId || 0]
+  );
+  return rows.length ? rows[0] : null;
+}
+
+async function createDelaySession(normalizedPhone, workerId) {
+  await clearDelaySession(normalizedPhone, workerId);
+  await db.execute(
+    `INSERT INTO delay_sessions (worker_id, phone, created_at) VALUES (?, ?, NOW())`,
+    [workerId || null, normalizedPhone]
+  );
+}
+
+async function clearDelaySession(normalizedPhone, workerId) {
+  const key = phoneKey(normalizedPhone);
+  try {
+    await db.execute(
+      `DELETE FROM delay_sessions
+       WHERE ${phoneMatchExpr('phone')} = ? OR phone = ? OR worker_id = ?`,
+      [key, normalizedPhone, workerId || 0]
+    );
+  } catch (err) {}
+}
+
 // Create an admin-facing alert record
 async function createAlert(type, workerId, workerName, phone, taskId, message) {
   try {
@@ -260,36 +292,14 @@ async function handleDelay(workerId, workerName, phone) {
     console.log(`[Receiver] ℹ️  No pending task for DELAY from ${workerName} — alert still created`);
   }
 
-  const instrEN = {
-    'Irrigation':    'Check water source & irrigation lines.',
-    'Fertilization': 'Apply fertilizer evenly across the field.',
-    'Pest Control':  'Inspect area, wear protective gear, and spray evenly.',
-    'Harvest':       'Ensure crops are mature and prepare harvesting tools.',
-    'General':       'Complete your assigned task as soon as possible.',
-  };
-  const instrTL = {
-    'Irrigation':    'Suriin ang tubig at linya ng patubig.',
-    'Fertilization': 'Mag-apply ng pataba nang pantay sa bukid.',
-    'Pest Control':  'Suriin ang lugar, magsuot ng proteksyon, mag-spray.',
-    'Harvest':       'Tiyaking hinog na. Ihanda ang mga kagamitan.',
-    'General':       'Kumpletuhin ang gawain sa lalong madaling panahon.',
-  };
+  // New Enhancement: Delay Reason Workflow
+  // Instead of auto-reminders, we immediately ask the worker for the reason for delay.
+  const reasonPromptEN = `AniAlerto: Reason for delay?`;
+  const reasonPromptTL = `AniAlerto: Dahilan ng pagka-delay?`;
   
-  const urgentCategories = ['Irrigation', 'Pest Control'];
-  const cat      = task?.category || 'General';
-  const batch    = task?.batch_name || '';
-  const iEN      = instrEN[cat] || instrEN['General'];
-  const iTL      = instrTL[cat] || instrTL['General'];
-  const urgTag   = urgentCategories.includes(cat) ? 'URGENT: ' : '';
-  const ctx      = batch ? ` in ${batch}` : '';
-  const ctxTL    = batch ? ` sa ${batch}` : '';
-  
-  // Split into English and Tagalog to stay safely under 160-character SMS limit
-  const followUpEN = `${urgTag}AniAlerto: Your ${cat} task${ctx} is delayed. ${iEN} Reply DONE when finished.`;
-  const followUpTL = `${urgTag}Paalala: Naantala ang iyong ${cat} gawain${ctxTL}. ${iTL} Sumagot ng DONE.`;
-  
-  await queueAutoReply(phone, followUpEN, workerId);
-  await queueAutoReply(phone, followUpTL, workerId);
+  await createDelaySession(phone, workerId);
+  await queueAutoReply(phone, reasonPromptEN, workerId);
+  await queueAutoReply(phone, reasonPromptTL, workerId);
 
   // ── Always create dashboard checklist alert ─────────────
   const batchInfo = task?.batch_name ? ` in ${task.batch_name}` : '';
@@ -488,7 +498,7 @@ async function processIncoming() {
         }
       }
 
-      // ── Invalid reply while in help session (not 1–4): prompt again ─────────
+      // ── Invalid reply while in help or delay session: check sessions ─────────
       if (command === null) {
         const session = await getHelpSession(normalizedPhone, workerId);
         if (session) {
@@ -497,7 +507,39 @@ async function processIncoming() {
           await deleteSMS(sms.index).catch(() => {});
           continue;
         }
-        // No help session — normal invalid reply
+
+        const delaySession = await getDelaySession(normalizedPhone, workerId);
+        if (delaySession) {
+          if (!sms.text.trim()) {
+            console.log(`[Receiver] ⚠️  Empty delay reason from ${workerName}`);
+            await queueAutoReply(normalizedPhone, `AniAlerto: Reason for delay? / Dahilan ng pagka-delay?`, workerId);
+            await deleteSMS(sms.index).catch(() => {});
+            continue;
+          }
+
+          console.log(`[Receiver] 📝 Delay reason received from ${workerName}: "${sms.text}"`);
+          // Store reason in the database
+          await db.execute(
+            `UPDATE alerts SET delay_reason = ? 
+             WHERE type = 'DELAY' AND worker_id = ? AND delay_reason IS NULL
+             ORDER BY created_at DESC LIMIT 1`,
+             [sms.text, workerId]
+          );
+
+          await clearDelaySession(normalizedPhone, workerId);
+          
+          await db.execute(
+            `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
+             VALUES (?, ?, ?, NOW())`,
+            [normalizedPhone, sms.text, 'DELAY_REASON']
+          );
+          
+          await queueAutoReply(normalizedPhone, `Reason recorded. Thank you.\n\nNaitala ang dahilan. Salamat.`, workerId);
+          await deleteSMS(sms.index).catch(() => {});
+          continue;
+        }
+
+        // No active session — normal invalid reply
         console.log(`[Receiver] ⚠️  Invalid reply from ${workerName}: "${sms.text}"`);
         await db.execute(
           `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
