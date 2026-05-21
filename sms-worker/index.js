@@ -27,13 +27,16 @@ async function main() {
   // Step 4: Connect to MySQL
   let db;
   try {
-    db = await mysql.createConnection({
+    db = mysql.createPool({
       host:     process.env.DB_HOST,
       user:     process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
     });
-    console.log('[DB] ✅ Connected to MySQL');
+    console.log('[DB] ✅ Connected to MySQL (Pool)');
   } catch (err) {
     console.error('[DB] ❌ Cannot connect to MySQL:', err.message);
     process.exit(1);

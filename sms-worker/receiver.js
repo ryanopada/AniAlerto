@@ -248,52 +248,50 @@ async function handleDelay(workerId, workerName, phone) {
     );
     console.log(`[Receiver] ⏰ Task ${task.id} → Delayed`);
 
-    const instrEN = {
-      'Irrigation':    'Check water source & irrigation lines.',
-      'Fertilization': 'Apply fertilizer evenly across the field.',
-      'Pest Control':  'Inspect area, wear protective gear, and spray evenly.',
-      'Harvest':       'Ensure crops are mature and prepare harvesting tools.',
-      'General':       'Complete your assigned task as soon as possible.',
-    };
-    const instrTL = {
-      'Irrigation':    'Suriin ang tubig at linya ng patubig.',
-      'Fertilization': 'Mag-apply ng pataba nang pantay sa bukid.',
-      'Pest Control':  'Suriin ang lugar, magsuot ng proteksyon, mag-spray.',
-      'Harvest':       'Tiyaking hinog na. Ihanda ang mga kagamitan.',
-      'General':       'Kumpletuhin ang gawain sa lalong madaling panahon.',
-    };
-    const urgentCategories = ['Irrigation', 'Pest Control'];
-    const cat      = task.category || 'General';
-    const batch    = task.batch_name || '';
-    const iEN      = instrEN[cat] || instrEN['General'];
-    const iTL      = instrTL[cat] || instrTL['General'];
-    const urgTag   = urgentCategories.includes(cat) ? 'URGENT: ' : '';
-    const ctx      = batch ? ` in ${batch}` : '';
-    const ctxTL    = batch ? ` sa ${batch}` : '';
-    
-    // Split into English and Tagalog to stay safely under 160-character SMS limit
-    const followUpEN = `${urgTag}AniAlerto: Your ${cat} task${ctx} is delayed. ${iEN} Reply DONE when finished.`;
-    const followUpTL = `${urgTag}Paalala: Naantala ang iyong ${cat} gawain${ctxTL}. ${iTL} Sumagot ng DONE.`;
-    
-    await queueAutoReply(phone, followUpEN, workerId);
-    await queueAutoReply(phone, followUpTL, workerId);
-
     if (task.category === 'Harvest') {
       const adminPhone = await getAdminPhone();
       if (adminPhone) {
         await queueAutoReply(adminPhone,
-          `AniAlerto Alert: ${workerName} reported HARVEST DELAY in ${batch}. Task #${task.id}. Follow up immediately.`,
+          `AniAlerto Alert: ${workerName} reported HARVEST DELAY in ${task.batch_name}. Task #${task.id}. Follow up immediately.`,
           null);
       }
     }
   } else {
     console.log(`[Receiver] ℹ️  No pending task for DELAY from ${workerName} — alert still created`);
-    // Only send the generic DELAY auto-reply if there is no active task
-    await queueAutoReply(phone, AUTO_REPLIES.DELAY, workerId);
   }
 
-  // ── Always create dashboard checklist alert ─────────────
+  const instrEN = {
+    'Irrigation':    'Check water source & irrigation lines.',
+    'Fertilization': 'Apply fertilizer evenly across the field.',
+    'Pest Control':  'Inspect area, wear protective gear, and spray evenly.',
+    'Harvest':       'Ensure crops are mature and prepare harvesting tools.',
+    'General':       'Complete your assigned task as soon as possible.',
+  };
+  const instrTL = {
+    'Irrigation':    'Suriin ang tubig at linya ng patubig.',
+    'Fertilization': 'Mag-apply ng pataba nang pantay sa bukid.',
+    'Pest Control':  'Suriin ang lugar, magsuot ng proteksyon, mag-spray.',
+    'Harvest':       'Tiyaking hinog na. Ihanda ang mga kagamitan.',
+    'General':       'Kumpletuhin ang gawain sa lalong madaling panahon.',
+  };
+  
+  const urgentCategories = ['Irrigation', 'Pest Control'];
+  const cat      = task?.category || 'General';
+  const batch    = task?.batch_name || '';
+  const iEN      = instrEN[cat] || instrEN['General'];
+  const iTL      = instrTL[cat] || instrTL['General'];
+  const urgTag   = urgentCategories.includes(cat) ? 'URGENT: ' : '';
+  const ctx      = batch ? ` in ${batch}` : '';
+  const ctxTL    = batch ? ` sa ${batch}` : '';
+  
+  // Split into English and Tagalog to stay safely under 160-character SMS limit
+  const followUpEN = `${urgTag}AniAlerto: Your ${cat} task${ctx} is delayed. ${iEN} Reply DONE when finished.`;
+  const followUpTL = `${urgTag}Paalala: Naantala ang iyong ${cat} gawain${ctxTL}. ${iTL} Sumagot ng DONE.`;
+  
+  await queueAutoReply(phone, followUpEN, workerId);
+  await queueAutoReply(phone, followUpTL, workerId);
 
+  // ── Always create dashboard checklist alert ─────────────
   const batchInfo = task?.batch_name ? ` in ${task.batch_name}` : '';
   const taskInfo  = task
     ? ` on ${task.category || 'farming'} task${batchInfo}. Task #${task.id}.`
