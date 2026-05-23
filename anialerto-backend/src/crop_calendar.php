@@ -43,13 +43,15 @@ try {
             message,
             days_after_planting,
             expected_responses,
-            active
+            active,
+            batch_id,
+            scheduled_send_datetime
         FROM message_templates
-        WHERE active = 1 AND trigger_type = 'days_after_planting'
-        ORDER BY days_after_planting ASC
+        WHERE active = 1 AND (trigger_type = 'days_after_planting' OR scheduled_send_datetime IS NOT NULL)
+        ORDER BY days_after_planting ASC, scheduled_send_datetime ASC
     ");
     $templateStmt->execute();
-    $templates = $templateStmt->fetchAll(PDO::FETCH_ASSOC);
+    $allTemplates = $templateStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Build timeline data for each batch
     $timeline = [];
@@ -71,15 +73,31 @@ try {
 
         // Build SMS schedule for this batch
         $smsSchedule = [];
-        foreach ($templates as $template) {
+        foreach ($allTemplates as $template) {
+            // Only include templates specifically assigned to this batch, or global ones
+            if (!empty($template['batch_id']) && $template['batch_id'] != $batch['id']) {
+                continue;
+            }
+
             $dueDay = (int) $template['days_after_planting'];
-            $dueDate = (clone $plantingDate)->modify("+{$dueDay} days")->format('Y-m-d');
             
-            $status = 'upcoming';
-            if ($daysSincePlanting > $dueDay) {
-                $status = 'sent';
-            } elseif ($daysSincePlanting === $dueDay) {
-                $status = 'today';
+            if (!empty($template['scheduled_send_datetime'])) {
+                $dueDate = date('Y-m-d', strtotime($template['scheduled_send_datetime']));
+                $status = 'upcoming';
+                $todayDateStr = $today->format('Y-m-d');
+                if ($todayDateStr > $dueDate) {
+                    $status = 'sent';
+                } elseif ($todayDateStr === $dueDate) {
+                    $status = 'today';
+                }
+            } else {
+                $dueDate = (clone $plantingDate)->modify("+{$dueDay} days")->format('Y-m-d');
+                $status = 'upcoming';
+                if ($daysSincePlanting > $dueDay) {
+                    $status = 'sent';
+                } elseif ($daysSincePlanting === $dueDay) {
+                    $status = 'today';
+                }
             }
 
             // Check if SMS was actually queued/sent for this template + batch

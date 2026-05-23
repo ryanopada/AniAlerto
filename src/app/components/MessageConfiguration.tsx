@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 interface MessageTemplate {
   id: string;
   name: string;
-  category: "Irrigation" | "Fertilization" | "Pest Control" | "Harvest" | "General";
+  category: "Preparation / Land Preparation" | "Irrigation / Patubig" | "Pesticide Spray / Pang-uod" | "Herbicide Spray / Pang-damo" | "Fertilizer / Abono 1" | "Fertilizer / Abono 2 / Last Dressing" | "Harvest Readiness" | "Irrigation" | "Fertilization" | "Pest Control" | "Harvest" | "General";
   message: string;
   days_after_planting: number;
   active: boolean | number;
@@ -49,6 +49,7 @@ interface Batch {
   id: string;
   name: string;
   status: string;
+  planting_date?: string;
 }
 
 export function MessageConfiguration() {
@@ -70,7 +71,7 @@ export function MessageConfiguration() {
 
   const emptyForm = {
     name: "",
-    category: "General" as MessageTemplate["category"],
+    category: "Preparation / Land Preparation" as MessageTemplate["category"],
     message: "",
     days_after_planting: 0,
     active: true,
@@ -120,13 +121,14 @@ export function MessageConfiguration() {
     fetchScheduledMessages();
   }, []);
 
-  const categories: MessageTemplate["category"][] = ["Irrigation", "Fertilization", "Pest Control", "Harvest", "General"];
-  
-  const availableResponses = [
-    { value: "DONE",  label: "DONE – Task completed",   color: "text-green-600"  },
-    { value: "DELAY", label: "DELAY – Task delayed",     color: "text-yellow-600" },
-    { value: "HELP",  label: "HELP – Need assistance",   color: "text-red-600"    },
-    { value: "PEST",  label: "PEST – Pest report",       color: "text-orange-600" },
+  const categories: MessageTemplate["category"][] = [
+    "Preparation / Land Preparation",
+    "Irrigation / Patubig",
+    "Pesticide Spray / Pang-uod",
+    "Herbicide Spray / Pang-damo",
+    "Fertilizer / Abono 1",
+    "Fertilizer / Abono 2 / Last Dressing",
+    "Harvest Readiness",
   ];
 
   const handleCreateTemplate = () => {
@@ -153,19 +155,72 @@ export function MessageConfiguration() {
     setIsDialogOpen(true);
   };
 
-  // Auto-calculate days between plant_date and scheduled_send_datetime
-  const calcDaysAfterPlanting = (plantDate: string, sendDatetime: string): number | null => {
-    if (!plantDate || !sendDatetime) return null;
-    const p = new Date(plantDate);
-    const s = new Date(sendDatetime);
-    if (isNaN(p.getTime()) || isNaN(s.getTime())) return null;
-    return Math.round((s.getTime() - p.getTime()) / (1000 * 60 * 60 * 24));
+  const getDaysOffset = (cat: string): number => {
+    switch (cat) {
+      case "Preparation / Land Preparation": return 0;
+      case "Irrigation / Patubig": return 8;
+      case "Pesticide Spray / Pang-uod": return 15;
+      case "Herbicide Spray / Pang-damo": return 20;
+      case "Fertilizer / Abono 1": return 15;
+      case "Fertilizer / Abono 2 / Last Dressing": return 40;
+      case "Harvest Readiness": return 120;
+      default: return 0;
+    }
   };
 
-  const daysCalc = calcDaysAfterPlanting(formData.plant_date, formData.scheduled_send_datetime);
-  const dateError = daysCalc !== null && daysCalc < 0
-    ? "Scheduled date cannot be earlier than the plant date."
-    : null;
+  const computeScheduledDate = (plantDate: string | null, category: string, timeStr: string): string => {
+    if (!plantDate) return "";
+    const p = new Date(plantDate);
+    if (isNaN(p.getTime())) return "";
+    const days = getDaysOffset(category);
+    p.setDate(p.getDate() + days);
+    
+    // Add time formatting
+    const [hh, mm] = timeStr.split(':');
+    p.setHours(parseInt(hh || "07"), parseInt(mm || "00"), 0, 0);
+    
+    // Format to YYYY-MM-DDTHH:mm
+    const year = p.getFullYear();
+    const month = String(p.getMonth() + 1).padStart(2, '0');
+    const day = String(p.getDate()).padStart(2, '0');
+    const hour = String(p.getHours()).padStart(2, '0');
+    const min = String(p.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${min}`;
+  };
+
+  const handleBatchChange = (batchId: string) => {
+    const batch = batches.find(b => b.id === batchId);
+    const plantDate = batch?.planting_date || "";
+    const newDate = computeScheduledDate(plantDate, formData.category, formData.scheduled_time || "07:00");
+    setFormData(prev => ({
+      ...prev,
+      batch_id: batchId,
+      plant_date: plantDate,
+      scheduled_send_datetime: newDate,
+      days_after_planting: getDaysOffset(prev.category)
+    }));
+  };
+
+  const handleCategoryChange = (cat: MessageTemplate["category"]) => {
+    const newDate = computeScheduledDate(formData.plant_date, cat, formData.scheduled_time || "07:00");
+    setFormData(prev => ({
+      ...prev,
+      category: cat,
+      scheduled_send_datetime: newDate,
+      days_after_planting: getDaysOffset(cat)
+    }));
+  };
+
+  const handleTimeChange = (timeStr: string) => {
+    const newDate = computeScheduledDate(formData.plant_date, formData.category, timeStr);
+    setFormData(prev => ({
+      ...prev,
+      scheduled_time: timeStr,
+      scheduled_send_datetime: newDate
+    }));
+  };
+
+  const daysCalc = getDaysOffset(formData.category);
 
   const handleViewTemplate = (template: MessageTemplate) => {
     setViewingTemplate(template);
@@ -224,18 +279,12 @@ export function MessageConfiguration() {
     fetchTemplates();
   };
 
-  const handleToggleResponse = (response: string) => {
-    setFormData(prev => ({
-      ...prev,
-      expected_responses: prev.expected_responses.includes(response)
-        ? prev.expected_responses.filter(r => r !== response)
-        : [...prev.expected_responses, response]
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (dateError) return;
+    if (!formData.batch_id) {
+      alert("Target Batch is required.");
+      return;
+    }
     const computedDays = daysCalc ?? formData.days_after_planting;
     const payload = {
       ...formData,
@@ -288,11 +337,19 @@ export function MessageConfiguration() {
 
   const getCategoryColor = (category: MessageTemplate["category"]) => {
     switch (category) {
+      case "Preparation / Land Preparation": return "bg-gray-100 text-gray-800";
+      case "Irrigation / Patubig": return "bg-blue-100 text-blue-800";
+      case "Pesticide Spray / Pang-uod": return "bg-red-100 text-red-800";
+      case "Herbicide Spray / Pang-damo": return "bg-orange-100 text-orange-800";
+      case "Fertilizer / Abono 1": return "bg-green-100 text-green-800";
+      case "Fertilizer / Abono 2 / Last Dressing": return "bg-emerald-100 text-emerald-800";
+      case "Harvest Readiness": return "bg-yellow-100 text-yellow-800";
       case "Irrigation": return "bg-blue-100 text-blue-800";
       case "Fertilization": return "bg-green-100 text-green-800";
       case "Pest Control": return "bg-red-100 text-red-800";
       case "Harvest": return "bg-yellow-100 text-yellow-800";
       case "General": return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -327,92 +384,82 @@ export function MessageConfiguration() {
                 <Label htmlFor="name">Template Name</Label>
                 <Input id="name" placeholder="e.g., First Irrigation Reminder" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <select id="category" className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as MessageTemplate["category"] })} required>
-                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="message">Message Content</Label>
-                <Textarea id="message" placeholder="Enter the SMS message content..." value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} required />
-                <p className="text-xs text-gray-500">Character count: {formData.message.length} (SMS limit: 160 characters per message)</p>
-              </div>
-              {/* Plant Date */}
-              <div className="space-y-2">
-                <Label htmlFor="plant_date" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-[#5d8044]" />
-                  Plant Date
-                </Label>
-                <Input
-                  id="plant_date"
-                  type="date"
-                  value={formData.plant_date}
-                  onChange={(e) => {
-                    const updated = { ...formData, plant_date: e.target.value };
-                    const d = calcDaysAfterPlanting(e.target.value, formData.scheduled_send_datetime);
-                    setFormData({ ...updated, days_after_planting: d ?? formData.days_after_planting });
-                  }}
-                  className="border-[#d9ead6] text-[#3d5a36]"
-                  required
-                />
-              </div>
-
-              {/* Scheduled Send Date & Time */}
-              <div className="space-y-2">
-                <Label htmlFor="scheduled_send_datetime" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-[#5d8044]" />
-                  Scheduled Send Date and Time
-                </Label>
-                <Input
-                  id="scheduled_send_datetime"
-                  type="datetime-local"
-                  value={formData.scheduled_send_datetime}
-                  onChange={(e) => {
-                    const updated = { ...formData, scheduled_send_datetime: e.target.value };
-                    const d = calcDaysAfterPlanting(formData.plant_date, e.target.value);
-                    setFormData({ ...updated, days_after_planting: d ?? formData.days_after_planting });
-                  }}
-                  className="border-[#d9ead6] text-[#3d5a36]"
-                  required
-                />
-                {/* Live feedback */}
-                {dateError ? (
-                  <p className="text-xs text-red-500 font-medium">⚠️ {dateError}</p>
-                ) : daysCalc !== null ? (
-                  <p className="text-xs text-[#5d8044] font-medium">✅ {daysCalc} day{daysCalc !== 1 ? 's' : ''} after planting</p>
-                ) : null}
-              </div>
-
-              {/* Batch Selector */}
+              {/* Target Batch */}
               <div className="space-y-2">
                 <Label htmlFor="batch_id" className="flex items-center gap-2">
                   <Layers className="h-4 w-4 text-[#5d8044]" />
-                  Target Batch
-                  <span className="text-xs font-normal text-[#7b8f6f]">(leave blank to apply to ALL batches)</span>
+                  Target Batch <span className="text-red-500">*</span>
                 </Label>
                 <select
                   id="batch_id"
                   className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6] text-[#3d5a36]"
                   value={formData.batch_id}
-                  onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+                  onChange={(e) => handleBatchChange(e.target.value)}
+                  required
                 >
-                  <option value="">— All Batches —</option>
+                  <option value="" disabled>— Select Target Batch —</option>
                   {batches.map(b => (
                     <option key={b.id} value={b.id}>{b.name}{b.status !== 'Active' ? ` (${b.status})` : ''}</option>
                   ))}
                 </select>
+                {formData.plant_date && (
+                  <p className="text-xs text-[#5d8044] bg-[#eff7ec] p-2 rounded-md mt-1 inline-block border border-[#d9ead6]">
+                    <span className="font-semibold">Plant Date:</span> {formData.plant_date}
+                  </p>
+                )}
               </div>
+
+              {/* Category / Rule */}
               <div className="space-y-2">
-                <Label>Expected Response Commands</Label>
+                <Label htmlFor="category">Category (Crop Rule)</Label>
+                <select 
+                  id="category" 
+                  className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" 
+                  value={formData.category} 
+                  onChange={(e) => handleCategoryChange(e.target.value as MessageTemplate["category"])} 
+                  required
+                >
+                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
+
+              {/* Scheduled Send Date & Time computation */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  {availableResponses.map((response) => (
-                    <div key={response.value} className="flex items-center gap-2">
-                      <input type="checkbox" id={`response-${response.value}`} checked={formData.expected_responses.includes(response.value)} onChange={() => handleToggleResponse(response.value)} className="h-4 w-4 rounded border-gray-300" />
-                      <Label htmlFor={`response-${response.value}`} className={`cursor-pointer ${response.color}`}>{response.label}</Label>
-                    </div>
-                  ))}
+                  <Label className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-[#5d8044]" />
+                    Scheduled Send Date
+                  </Label>
+                  <div className="w-full border rounded-xl p-3 bg-gray-50 border-[#d9ead6] text-gray-600">
+                    {formData.scheduled_send_datetime ? new Date(formData.scheduled_send_datetime).toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : "—"}
+                  </div>
+                  {formData.plant_date && (
+                    <p className="text-xs text-[#5d8044] font-medium">
+                      Rule: {daysCalc === 0 ? "Day 0 (Plant Date)" : `${daysCalc} days after plant date`}
+                    </p>
+                  )}
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="scheduled_time" className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-[#5d8044]" />
+                    Send Time
+                  </Label>
+                  <Input
+                    id="scheduled_time"
+                    type="time"
+                    value={formData.scheduled_time || "07:00"}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    className="border-[#d9ead6] text-[#3d5a36] p-3 rounded-xl"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Message Content */}
+              <div className="space-y-2">
+                <Label htmlFor="message">Message Content</Label>
+                <Textarea id="message" placeholder="Enter the SMS message content..." value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} required />
+                <p className="text-xs text-gray-500">Character count: {formData.message.length} (SMS limit: 160 characters per message)</p>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
                 <input
@@ -500,6 +547,7 @@ export function MessageConfiguration() {
                     <PieChart>
                       <Pie data={categories.map(cat => ({ name: cat, value: templates.filter(t => t.category === cat).length })).filter(d => d.value > 0)} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
                         <Cell fill="#8acb88" /><Cell fill="#ffbf46" /><Cell fill="#648381" /><Cell fill="#575761" /><Cell fill="#e4fde1" />
+                        <Cell fill="#a2d2ff" /><Cell fill="#cdb4db" /><Cell fill="#ffc8dd" /><Cell fill="#bde0fe" /><Cell fill="#ffafcc" />
                       </Pie>
                       <Tooltip /><Legend />
                     </PieChart>
@@ -661,7 +709,6 @@ export function MessageConfiguration() {
                   <TableHead>Target Batch</TableHead>
                   <TableHead>Send Time</TableHead>
                   <TableHead>Message Preview</TableHead>
-                  <TableHead>Expected Responses</TableHead>
                   <TableHead>Day</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -690,13 +737,6 @@ export function MessageConfiguration() {
                       </span>
                     </TableCell>
                     <TableCell className="max-w-xs"><p className="text-sm text-[#556d4a] truncate">{template.message}</p></TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {template.expected_responses && template.expected_responses.length > 0 ? template.expected_responses.map((response) => (
-                          <span key={response} className={`px-2 py-0.5 rounded text-xs font-medium border ${getResponseColor(response)}`}>{response}</span>
-                        )) : <span className="text-xs text-[#7b8f6f]">No responses</span>}
-                      </div>
-                    </TableCell>
                     <TableCell className="text-center text-[#556d4a]">{template.days_after_planting}</TableCell>
                     <TableCell>
                       <Badge variant={template.active ? "default" : "secondary"} className="cursor-pointer" onClick={() => handleToggleActive(template.id)}>{template.active ? "Active" : "Inactive"}</Badge>

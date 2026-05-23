@@ -23,7 +23,7 @@ try {
 
     CREATE TYPE role_type AS ENUM ('Admin', 'Farm Head');
     CREATE TYPE batch_status_type AS ENUM ('Planning', 'Active', 'Harvested');
-    CREATE TYPE category_type AS ENUM ('Irrigation', 'Fertilization', 'Pest Control', 'Harvest', 'General');
+    CREATE TYPE category_type AS ENUM ('Preparation / Land Preparation', 'Irrigation / Patubig', 'Pesticide Spray / Pang-uod', 'Herbicide Spray / Pang-damo', 'Fertilizer / Abono 1', 'Fertilizer / Abono 2 / Last Dressing', 'Harvest Readiness', 'Irrigation', 'Fertilization', 'Pest Control', 'Harvest', 'General');
     CREATE TYPE trigger_type AS ENUM ('days_after_planting', 'interval', 'event');
     CREATE TYPE task_status_type AS ENUM ('Pending', 'Completed', 'Delayed', 'Cancelled');
     CREATE TYPE queue_status_type AS ENUM ('Queued', 'Sending', 'Sent', 'Retry', 'Failed');
