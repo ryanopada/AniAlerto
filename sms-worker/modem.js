@@ -170,8 +170,31 @@ function sendSMS(phone, message) {
   return enqueueCommand(async () => {
     if (!isConnected) throw new Error('Modem not connected');
 
-    // Prefix every outgoing message so workers see "AniAlerto" as the source.
-    const body = `AniAlerto: ${message}`;
+    // Prevent duplicate AniAlerto prefix
+    const prefix = 'AniAlerto: ';
+    let cleanMessage = message.trim();
+    if (!cleanMessage.startsWith(prefix)) {
+      cleanMessage = `${prefix}${cleanMessage}`;
+    }
+
+    // Fix SMS formatting issues (GSM 7-bit alphabet limits)
+    // Multibyte UTF-8 characters sent to the modem are interpreted byte-by-byte.
+    // Unrecognized bytes become 0x00, which renders as "@" on phones.
+    
+    // 1. Replace various unicode dashes with standard hyphen
+    cleanMessage = cleanMessage.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-');
+    
+    // 2. Replace smart quotes with standard quotes
+    cleanMessage = cleanMessage.replace(/[\u2018\u2019\u201A\u201B]/g, "'");
+    cleanMessage = cleanMessage.replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+    
+    // 3. Ensure proper line breaks for GSM modems (normalize to \r\n)
+    cleanMessage = cleanMessage.replace(/\r?\n/g, '\r\n');
+    
+    // 4. Strip any remaining non-ASCII characters to guarantee no "@@" garbage
+    cleanMessage = cleanMessage.replace(/[^\x00-\x7F]/g, '');
+
+    const body = cleanMessage;
 
     let lastError;
     try {

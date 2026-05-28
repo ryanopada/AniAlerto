@@ -4,256 +4,296 @@ import { motion } from "motion/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
+import { Input } from "./ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
-  FileText, Download, TrendingUp, Users, MessageSquare,
-  RefreshCw, AlertCircle, Bug, Clock, CheckCircle, ChevronRight, Loader2
+  RefreshCw, AlertCircle, Bug, Clock, CheckCircle, Loader2, Calendar, ClipboardList, TrendingUp, ShieldAlert, Users, MessageSquare, Download
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const API = "http://localhost/anialerto-backend/src/get_reports_data.php";
 
-const GREEN  = [93, 128, 68]  as [number, number, number];
-const LGREEN = [229, 245, 220] as [number, number, number];
-const DGRAY  = [55,  65,  81]  as [number, number, number];
-
 function fmtDate(iso: string) {
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
 }
-function nowLabel() {
-  return new Date().toLocaleString("en-PH", {
-    year: "numeric", month: "long", day: "numeric",
-    hour: "2-digit", minute: "2-digit"
-  });
-}
-
-// ── PDF builder ───────────────────────────────────────────────────────────────
-
-function buildPDF(data: any, reportType: "messages" | "workers", dateFilter?: string) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const W = doc.internal.pageSize.getWidth();
-  let y = 15;
-
-  const section = (title: string, tagalog: string) => {
-    y += 4;
-    doc.setFillColor(...LGREEN);
-    doc.rect(10, y, W - 20, 8, "F");
-    doc.setFontSize(9);
-    doc.setTextColor(...GREEN);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${title}  /  ${tagalog}`, 13, y + 5.5);
-    doc.setTextColor(...DGRAY);
-    y += 10;
-  };
-
-  // ── Header ────────────────────────────────────────────────────────────────
-  doc.setFillColor(...GREEN);
-  doc.rect(0, 0, W, 28, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("AniAlerto Farm Management System", W / 2, 11, { align: "center" });
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  const title = dateFilter
-    ? `Daily Detail Report — ${fmtDate(dateFilter)}`
-    : reportType === "messages"
-    ? "SMS Activity Report / Ulat ng Aktibidad sa SMS"
-    : "Worker Engagement Report / Ulat ng Pakikilahok ng Manggagawa";
-  doc.text(title, W / 2, 19, { align: "center" });
-  doc.setFontSize(8);
-  doc.text(`Generated: ${nowLabel()}`, W / 2, 25, { align: "center" });
-  doc.setTextColor(...DGRAY);
-  y = 35;
-
-  const s = data.summary;
-
-  if (!dateFilter) {
-    // ── Summary stats ──────────────────────────────────────────────────────
-    section("Summary Statistics", "Buod ng Istatistika");
-    autoTable(doc, {
-      startY: y,
-      margin: { left: 10, right: 10 },
-      head: [["Metric / Sukatan", "Value / Halaga"]],
-      body: [
-        ["Total Messages / Kabuuang Mensahe",           String(s.total)],
-        ["Completion Rate / Tapusin na Rate",           `${s.completionRate}%`],
-        ["Active Workers / Aktibong Manggagawa",        String(s.activeWorkers)],
-        ["DONE Replies / Tapos na",                     String(s.completed)],
-        ["DELAY Replies / Naantala",                    String(s.delayed)],
-        ["HELP Requests / Hiling ng Tulong",            String(s.helpRequests)],
-        ["PEST Reports / Ulat ng Peste",                String(s.pestReports)],
-        ["Pending (no reply) / Walang Sagot",           String(s.pending)],
-      ],
-      headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
-      bodyStyles: { fontSize: 9 },
-      alternateRowStyles: { fillColor: [248, 253, 243] },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-
-    // ── Response distribution ─────────────────────────────────────────────
-    section("Response Distribution", "Distribusyon ng Sagot");
-    autoTable(doc, {
-      startY: y,
-      margin: { left: 10, right: 10 },
-      head: [["Response / Sagot", "Count / Bilang", "Percent / Porsyento"]],
-      body: (data.statusDistribution || []).map((r: any) => [r.name, String(r.value), `${r.percent}%`]),
-      headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
-      bodyStyles: { fontSize: 9 },
-      alternateRowStyles: { fillColor: [248, 253, 243] },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
-
-  // ── Daily volume (or filtered day) ────────────────────────────────────────
-  section("Daily Message Volume", "Dami ng Mensahe Araw-araw");
-  const volRows = dateFilter
-    ? (data.dailyVolume || []).filter((r: any) => r.date === dateFilter)
-    : (data.dailyVolume || []);
-  autoTable(doc, {
-    startY: y,
-    margin: { left: 10, right: 10 },
-    head: [["Date / Petsa", "Messages Sent / Mensaheng Ipinadala"]],
-    body: volRows.map((r: any) => [fmtDate(r.date), String(r.count)]),
-    headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
-    bodyStyles: { fontSize: 9 },
-    alternateRowStyles: { fillColor: [248, 253, 243] },
-  });
-  y = (doc as any).lastAutoTable.finalY + 6;
-
-  // ── Worker engagement ──────────────────────────────────────────────────────
-  if (reportType === "workers" || dateFilter) {
-    section("Worker Engagement", "Pakikilahok ng Manggagawa");
-    autoTable(doc, {
-      startY: y,
-      margin: { left: 10, right: 10 },
-      head: [["Worker / Manggagawa", "Phone", "Sent", "DONE", "DELAY", "HELP", "PEST", "Pending"]],
-      body: (data.workerEngagement || []).map((w: any) => [
-        w.name, w.phone,
-        String(w.total_sent), String(w.done_count), String(w.delay_count),
-        String(w.help_count), String(w.pest_count), String(w.pending_count),
-      ]),
-      headStyles: { fillColor: GREEN, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [248, 253, 243] },
-      columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 32 } },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
-
-  // ── Pest alerts ────────────────────────────────────────────────────────────
-  if (!dateFilter && data.pestAlerts?.length > 0) {
-    section("Pest Incident Log", "Talaan ng Insidente ng Peste");
-    autoTable(doc, {
-      startY: y,
-      margin: { left: 10, right: 10 },
-      head: [["Reported At / Petsa", "Worker / Manggagawa", "Phone", "Batch / Pangkat", "Status"]],
-      body: (data.pestAlerts || []).map((p: any) => [
-        p.reported_at ? new Date(p.reported_at).toLocaleString("en-PH") : "-",
-        p.worker_name || "-", p.phone || "-",
-        p.batch_name  || "—", p.status || "-",
-      ]),
-      headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [255, 245, 245] },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
-
-  // ── Footer ────────────────────────────────────────────────────────────────
-  const pageH = doc.internal.pageSize.getHeight();
-  doc.setFontSize(7);
-  doc.setTextColor(160, 160, 160);
-  doc.text("AniAlerto — Confidential Farm Management Report", W / 2, pageH - 8, { align: "center" });
-  doc.text(`Page 1  |  Generated ${nowLabel()}`, W / 2, pageH - 4, { align: "center" });
-
-  const fname = dateFilter
-    ? `AniAlerto_Daily_${dateFilter}.pdf`
-    : `AniAlerto_${reportType === "messages" ? "SMS" : "Workers"}_Report_${new Date().toISOString().slice(0,10)}.pdf`;
-  doc.save(fname);
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export function Reports() {
-  const [reportType, setReportType] = useState<"messages" | "workers">("messages");
-  const [data, setData]             = useState<any>(null);
-  const [loading, setLoading]       = useState(true);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [dateFrom, setDateFrom]     = useState(
-    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-  );
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0]);
+
+  // Filters
+  const [batchId, setBatchId] = useState<string>("");
+  const [workerId, setWorkerId] = useState<string>("");
+  const [category, setCategory] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(API);
+      const queryParams = new URLSearchParams();
+      if (batchId) queryParams.append("batch_id", batchId);
+      if (workerId) queryParams.append("worker_id", workerId);
+      if (category) queryParams.append("category", category);
+      if (startDate) queryParams.append("start_date", startDate);
+      if (endDate) queryParams.append("end_date", endDate);
+
+      const res = await fetch(`${API}?${queryParams.toString()}`);
       if (!res.ok) throw new Error(`Server responded with ${res.status}`);
       setData(await res.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load reports data.");
-      setData({ summary: { total: 0, completionRate: 0, activeWorkers: 0, helpRequests: 0, delayed: 0, pestReports: 0, pending: 0, completed: 0 }, dailyVolume: [], statusDistribution: [], workerEngagement: [], pestAlerts: [] });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [batchId, workerId, category, startDate, endDate]);
 
   const handleGeneratePDF = async () => {
     if (!data) return;
     setGenerating(true);
-    await new Promise(r => setTimeout(r, 100)); // let spinner render
-    try { buildPDF(data, reportType); }
-    catch (e) { console.error("PDF error:", e); }
-    finally { setGenerating(false); }
+    await new Promise(r => setTimeout(r, 100)); // allow UI update
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const W = doc.internal.pageSize.getWidth();
+      let y = 15;
+      const GREEN: [number, number, number] = [93, 128, 68];
+      const DGRAY: [number, number, number] = [55, 65, 81];
+      const LGREEN: [number, number, number] = [229, 245, 220];
+      
+      // Header
+      doc.setFillColor(...GREEN);
+      doc.rect(0, 0, W, 28, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("AniAlerto Farm Operations Report", W / 2, 11, { align: "center" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleString("en-PH")}`, W / 2, 19, { align: "center" });
+      doc.setTextColor(...DGRAY);
+      y = 35;
+
+      const addSection = (title: string, shows: string, useful: string) => {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...GREEN);
+        doc.text(title, 14, y);
+        y += 5;
+
+        doc.setTextColor(...DGRAY);
+        doc.setFontSize(9);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text("Shows:", 14, y);
+        doc.setFont("helvetica", "normal");
+        const showsLines = doc.splitTextToSize(shows, W - 32);
+        doc.text(showsLines, 28, y);
+        y += (showsLines.length * 4) + 1;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Why useful:", 14, y);
+        doc.setFont("helvetica", "normal");
+        const usefulLines = doc.splitTextToSize(useful, W - 36);
+        doc.text(usefulLines, 34, y);
+        y += (usefulLines.length * 4) + 3;
+      };
+
+      // 1. Farm Task Completion Report
+      if (data.taskCompletion) {
+        addSection(
+          "1. Farm Task Completion Report",
+          "completed farm activities, pending tasks, delayed tasks, cancelled tasks",
+          "Helps admin monitor whether farm operations are actually being performed."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Status", "Count"]],
+          body: [
+            ["Completed", String(data.taskCompletion.Completed || 0)],
+            ["Pending", String(data.taskCompletion.Pending || 0)],
+            ["Delayed", String(data.taskCompletion.Delayed || 0)],
+            ["Cancelled", String(data.taskCompletion.Cancelled || 0)],
+          ],
+          headStyles: { fillColor: GREEN },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      // 2. Worker Response Monitoring Report
+      if (data.workerMonitoring && data.workerMonitoring.length > 0) {
+        addSection(
+          "2. Worker Response Monitoring Report",
+          "workers who responded, workers who did not respond, frequent DELAY (and their reasons) or HELP responses, response time",
+          "Helps identify workers needing supervision or assistance."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Worker", "Assigned", "DONE", "DELAY", "HELP/PEST", "Avg Response"]],
+          body: data.workerMonitoring.map((w: any) => [
+            w.name, String(w.total_sent), String(w.done_count), String(w.delay_count), String(w.help_count), w.avg_response_time ? `${w.avg_response_time} mins` : "-"
+          ]),
+          headStyles: { fillColor: GREEN },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      // 3. Upcoming Farm Activities Report
+      if (data.upcomingActivities && data.upcomingActivities.length > 0) {
+        addSection(
+          "3. Upcoming Farm Activities Report",
+          "upcoming schedules, activities due soon, affected farm batches",
+          "Helps admin prepare labor, fertilizer, pesticide, and equipment ahead of time."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Due Date", "Batch", "Activity", "Category"]],
+          body: data.upcomingActivities.map((a: any) => [
+            fmtDate(a.due_date), a.batchName, a.taskName, a.category || "General"
+          ]),
+          headStyles: { fillColor: GREEN },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      // 4. Pest and Emergency Alert Report
+      if (data.pestAlerts && data.pestAlerts.length > 0) {
+        addSection(
+          "4. Pest and Emergency Alert Report",
+          "HELP reports, PEST reports, urgent worker concerns",
+          "Helps admin respond quickly to field problems."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Date", "Worker", "Alert Type"]],
+          body: data.pestAlerts.map((a: any) => [
+            fmtDate(a.received_at || a.created_at), a.workerName || "Unknown", a.alertType
+          ]),
+          headStyles: { fillColor: [185, 28, 28] }, // Red header
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      // 5. Farm Batch Progress Report
+      if (data.batchProgress && data.batchProgress.length > 0) {
+        addSection(
+          "5. Farm Batch Progress Report",
+          "crop day/stage, current farm status, completed activities per batch",
+          "Gives admin an overview of farm progress."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Batch Name", "Status", "Crop Age", "Progress"]],
+          body: data.batchProgress.map((b: any) => [
+            b.name, b.status, b.cropDay !== null ? `Day ${b.cropDay}` : "-", `${b.progress}% (${b.tasksCompleted}/${b.tasksTotal})`
+          ]),
+          headStyles: { fillColor: GREEN },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      // 6. Worker Assignment Report
+      if (data.workerAssignments && data.workerAssignments.length > 0) {
+        addSection(
+          "6. Worker Assignment Report",
+          "assigned workers, assigned farm batches, worker roles",
+          "Helps admin monitor labor distribution."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Worker", "Roles", "Assigned Batches"]],
+          body: data.workerAssignments.map((w: any) => [
+            w.name, w.roles.join(", ") || "Unassigned", w.batches.join(", ") || "No batches"
+          ]),
+          headStyles: { fillColor: GREEN },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      // 7. Advisory Effectiveness Report
+      if (data.advisoryEffectiveness) {
+        addSection(
+          "7. Advisory Effectiveness Report",
+          "percentage of acknowledged tasks, tasks completed after reminders, delayed task trends",
+          "Measures whether advisories are effective."
+        );
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Metric", "Value"]],
+          body: [
+            ["Total Sent", String(data.advisoryEffectiveness.totalSent)],
+            ["Acknowledged Tasks", data.advisoryEffectiveness.totalSent ? `${Math.round((data.advisoryEffectiveness.acknowledged / data.advisoryEffectiveness.totalSent) * 100)}%` : '0%'],
+            ["Delayed Responses", String(data.advisoryEffectiveness.delayed)],
+          ],
+          headStyles: { fillColor: GREEN },
+        });
+        y = (doc as any).lastAutoTable.finalY + 18;
+      }
+
+      // Final Questions
+      if (y > 220) { doc.addPage(); y = 20; }
+      doc.setFillColor(...LGREEN);
+      doc.rect(10, y, W - 20, 45, "F");
+      y += 8;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...GREEN);
+      doc.text("The reports answer the following critical operations questions:", 14, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...DGRAY);
+      doc.text("• Are farm activities being completed?", 16, y); y+=5;
+      doc.text("• Which workers need follow-up?", 16, y); y+=5;
+      doc.text("• Which farm batches need attention?", 16, y); y+=5;
+      doc.text("• What tasks are upcoming?", 16, y); y+=5;
+      doc.text("• Are there pest or emergency issues?", 16, y); y+=5;
+      doc.text("• Are advisories helping operations?", 16, y);
+
+      doc.save(`Farm_Operations_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      console.error("PDF generation error:", e);
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const handleDailyReport = async (date: string) => {
-    if (!data) return;
-    setGenerating(true);
-    await new Promise(r => setTimeout(r, 100));
-    try { buildPDF(data, reportType, date); }
-    catch (e) { console.error("PDF error:", e); }
-    finally { setGenerating(false); }
-  };
-
-  // Filter daily volume to selected date range
-  const filteredVolume = (data?.dailyVolume || []).filter((r: any) =>
-    r.date >= dateFrom && r.date <= dateTo
-  );
-
-  const s = data?.summary || {};
-
-  if (loading) return (
+  if (loading && !data) return (
     <div className="flex flex-col items-center justify-center h-96">
-      <RefreshCw className="h-10 w-10 animate-spin text-[#8acb88] mb-4" />
-      <p className="text-gray-500 animate-pulse">Loading report data...</p>
+      <Loader2 className="h-10 w-10 animate-spin text-[#8acb88] mb-4" />
+      <p className="text-gray-500 animate-pulse">Loading operations data...</p>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f3faf2] via-[#f9fcf7] to-[#eff7eb] space-y-6 p-6 max-w-7xl mx-auto">
-
+      
       {/* Header */}
       <motion.div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
         <div>
-          <h1 className="text-3xl font-bold text-[#3d5a36]">Reports & Logs</h1>
-          <p className="text-[#556d4a]">Database-driven insights from your SMS activity</p>
+          <h1 className="text-3xl font-bold text-[#3d5a36]">Farm Operations Reports</h1>
+          <p className="text-[#556d4a]">Actionable insights into farm progress, worker engagement, and alerts.</p>
         </div>
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-          <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white border border-[#7a9b5c]" onClick={fetchData}>
-            <RefreshCw className="h-4 w-4 mr-2" /> Refresh Data
+        <div className="flex gap-2">
+          <Button variant="outline" className="text-[#3d5a36] border-[#d9ead6] bg-white hover:bg-[#eff7eb]" onClick={handleGeneratePDF} disabled={generating || !data}>
+            {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />} 
+            Download PDF
           </Button>
-        </motion.div>
+          <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white border border-[#7a9b5c]" onClick={fetchData}>
+            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />} 
+            Refresh Data
+          </Button>
+        </div>
       </motion.div>
 
       {error && (
@@ -263,186 +303,263 @@ export function Reports() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <motion.div className="grid grid-cols-2 md:grid-cols-4 gap-4"
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
-        <StatCard title="Total Messages"   value={s.total      || 0} icon={<MessageSquare className="h-5 w-5"/>} color="border-l-[#5d8044]" textColor="text-[#3d5a36]"/>
-        <StatCard title="Completion Rate"  value={`${s.completionRate || 0}%`} icon={<TrendingUp className="h-5 w-5"/>} color="border-l-[#5d8044]" textColor="text-[#5d8044]"/>
-        <StatCard title="Active Workers"   value={s.activeWorkers || 0} icon={<Users className="h-5 w-5"/>} color="border-l-[#5d8044]" textColor="text-[#3d5a36]"/>
-        <StatCard title="Help Requests"    value={s.helpRequests  || 0} icon={<FileText className="h-5 w-5"/>} color="border-l-[#d97706]" textColor="text-orange-600"/>
-        <StatCard title="DONE Replies"     value={s.completed     || 0} icon={<CheckCircle className="h-5 w-5"/>} color="border-l-green-500" textColor="text-green-700"/>
-        <StatCard title="Delay Replies"    value={s.delayed       || 0} icon={<Clock className="h-5 w-5"/>} color="border-l-yellow-500" textColor="text-yellow-700"/>
-        <StatCard title="PEST Reports"     value={s.pestReports   || 0} icon={<Bug className="h-5 w-5"/>} color="border-l-red-500" textColor="text-red-700"/>
-        <StatCard title="Pending (no reply)" value={s.pending     || 0} icon={<AlertCircle className="h-5 w-5"/>} color="border-l-gray-400" textColor="text-gray-500"/>
-      </motion.div>
-
-      {/* PDF Generator */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-        <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3]">
-          <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0]">
-            <CardTitle className="text-[#3d5a36] flex items-center gap-2">
-              <Download className="h-5 w-5 text-[#5d8044]" /> Generate PDF Report
-            </CardTitle>
-            <CardDescription className="text-[#556d4a]">
-              Produces a clean, structured PDF — not a page screenshot
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[#3d5a36] font-semibold">Report Type</Label>
-                <select className="w-full rounded-xl border border-[#d9ead6] bg-white px-3 py-2.5 text-sm shadow-sm"
-                  value={reportType} onChange={e => setReportType(e.target.value as any)}>
-                  <option value="messages">SMS Activity Report</option>
-                  <option value="workers">Worker Engagement Report</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[#3d5a36] font-semibold">From</Label>
-                <input type="date" className="w-full rounded-xl border border-[#d9ead6] bg-white px-3 py-2.5 text-sm shadow-sm"
-                  value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[#3d5a36] font-semibold">To</Label>
-                <input type="date" className="w-full rounded-xl border border-[#d9ead6] bg-white px-3 py-2.5 text-sm shadow-sm"
-                  value={dateTo} onChange={e => setDateTo(e.target.value)} />
-              </div>
+      {/* Global Filter Bar */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <Card className="border border-[#d9ead6] shadow-xl shadow-[#a4c692]/10 bg-white rounded-2xl">
+          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-[#7b8f6f] uppercase">Farm Batch</Label>
+              <select className="w-full border rounded-md h-10 px-3 bg-white shadow-sm border-[#d9ead6] text-sm text-[#556d4a]"
+                value={batchId} onChange={e => setBatchId(e.target.value)}>
+                <option value="">All Batches</option>
+                {data?.filterOptions?.batches?.map((b: any) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
             </div>
-
-            {/* What's included info */}
-            <div className="rounded-xl bg-[#f0f9eb] border border-[#d9ead6] p-4 text-xs text-[#556d4a] space-y-1">
-              <p className="font-semibold text-[#3d5a36] mb-1">📄 PDF will include:</p>
-              <p>• Summary statistics (English + Tagalog labels)</p>
-              <p>• Response distribution (DONE / DELAY / HELP / PEST / Pending)</p>
-              <p>• Daily message volume table</p>
-              {reportType === "workers" && <p>• Per-worker engagement breakdown</p>}
-              <p>• Pest incident log</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-[#7b8f6f] uppercase">Worker</Label>
+              <select className="w-full border rounded-md h-10 px-3 bg-white shadow-sm border-[#d9ead6] text-sm text-[#556d4a]"
+                value={workerId} onChange={e => setWorkerId(e.target.value)}>
+                <option value="">All Workers</option>
+                {data?.filterOptions?.workers?.map((w: any) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
             </div>
-
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button
-                className="w-full bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]"
-                onClick={handleGeneratePDF}
-                disabled={generating || !data}
-              >
-                {generating
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating PDF...</>
-                  : <><Download className="h-4 w-4 mr-2" />Generate PDF Report</>
-                }
-              </Button>
-            </motion.div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-[#7b8f6f] uppercase">Category</Label>
+              <select className="w-full border rounded-md h-10 px-3 bg-white shadow-sm border-[#d9ead6] text-sm text-[#556d4a]"
+                value={category} onChange={e => setCategory(e.target.value)}>
+                <option value="">All Categories</option>
+                {data?.filterOptions?.categories?.map((c: any) => (
+                  <option key={c.category} value={c.category}>{c.category}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-[#7b8f6f] uppercase">Start Date</Label>
+              <Input type="date" className="h-10 border-[#d9ead6]" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-[#7b8f6f] uppercase">End Date</Label>
+              <Input type="date" className="h-10 border-[#d9ead6]" value={endDate} onChange={e => setEndDate(e.target.value)} />
+            </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Daily Volume — clickable rows */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}>
-        <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3] overflow-hidden">
-          <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0]">
-            <CardTitle className="text-[#3d5a36]">Daily Message Volume</CardTitle>
-            <CardDescription className="text-[#556d4a]">
-              Click any row to generate a detailed PDF report for that day
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-[#f3faf2]">
-                <TableRow>
-                  <TableHead>Date / Petsa</TableHead>
-                  <TableHead>Messages Sent / Mensahe</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVolume.length > 0 ? filteredVolume.map((row: any, i: number) => (
-                  <motion.tr
-                    key={row.date}
-                    className="hover:bg-[#eff7ed] cursor-pointer transition-colors duration-150 group"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: i * 0.04 }}
-                    onClick={() => handleDailyReport(row.date)}
-                    title={`Click to download daily report for ${fmtDate(row.date)}`}
-                  >
-                    <TableCell className="font-medium text-[#3d5a36]">{fmtDate(row.date)}</TableCell>
-                    <TableCell className="text-[#556d4a]">{row.count} message{row.count !== 1 ? "s" : ""}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-[#e4fde1] text-[#5d8044] border-[#d9ead6]">Synced</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="inline-flex items-center gap-1 text-xs text-[#5d8044] opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-                        <Download className="h-3.5 w-3.5" /> Daily PDF <ChevronRight className="h-3.5 w-3.5" />
-                      </span>
-                    </TableCell>
-                  </motion.tr>
-                )) : (
+      {/* Tabs */}
+      <Tabs defaultValue="progress" className="w-full">
+        <TabsList className="bg-[#e4fde1] border border-[#d9ead6] p-1 rounded-xl mb-4 w-full justify-start h-auto overflow-x-auto">
+          <TabsTrigger value="progress" className="data-[state=active]:bg-white data-[state=active]:text-[#3d5a36] text-[#556d4a] rounded-lg px-4 py-2 font-medium">Task & Batch Progress</TabsTrigger>
+          <TabsTrigger value="upcoming" className="data-[state=active]:bg-white data-[state=active]:text-[#3d5a36] text-[#556d4a] rounded-lg px-4 py-2 font-medium">Upcoming Activities</TabsTrigger>
+          <TabsTrigger value="workers" className="data-[state=active]:bg-white data-[state=active]:text-[#3d5a36] text-[#556d4a] rounded-lg px-4 py-2 font-medium">Worker Analytics</TabsTrigger>
+          <TabsTrigger value="alerts" className="data-[state=active]:bg-white data-[state=active]:text-[#3d5a36] text-[#556d4a] rounded-lg px-4 py-2 font-medium">Alerts & Effectiveness</TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: Task & Batch Progress */}
+        <TabsContent value="progress" className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard title="Completed Tasks" value={data?.taskCompletion?.Completed || 0} icon={<CheckCircle className="h-5 w-5"/>} color="border-l-green-500" textColor="text-green-700"/>
+            <StatCard title="Pending Tasks" value={data?.taskCompletion?.Pending || 0} icon={<Clock className="h-5 w-5"/>} color="border-l-blue-500" textColor="text-blue-700"/>
+            <StatCard title="Delayed Tasks" value={data?.taskCompletion?.Delayed || 0} icon={<AlertCircle className="h-5 w-5"/>} color="border-l-yellow-500" textColor="text-yellow-700"/>
+            <StatCard title="Cancelled Tasks" value={data?.taskCompletion?.Cancelled || 0} icon={<AlertCircle className="h-5 w-5"/>} color="border-l-gray-400" textColor="text-gray-500"/>
+          </div>
+
+          <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-xl shadow-[#a4c692]/10 bg-white">
+            <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0] rounded-t-[1.5rem]">
+              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Farm Batch Progress</CardTitle>
+              <CardDescription>Overview of task completion and crop age for active batches.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-[#f3faf2]">
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10 text-gray-400">
-                      No data found for this date range.
-                    </TableCell>
+                    <TableHead>Batch Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Crop Age</TableHead>
+                    <TableHead>Task Progress</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </motion.div>
+                </TableHeader>
+                <TableBody>
+                  {data?.batchProgress?.length > 0 ? data.batchProgress.map((b: any) => (
+                    <TableRow key={b.id} className="hover:bg-[#eff7ed]">
+                      <TableCell className="font-medium text-[#3d5a36]">{b.name}</TableCell>
+                      <TableCell><Badge variant="outline" className={b.status === 'Active' ? "border-green-300 text-green-700 bg-green-50" : ""}>{b.status}</Badge></TableCell>
+                      <TableCell className="text-[#556d4a]">{b.cropDay !== null ? `Day ${b.cropDay}` : '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 max-w-[150px]">
+                            <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${b.progress}%` }}></div>
+                          </div>
+                          <span className="text-xs font-medium text-gray-500">{b.progress}% ({b.tasksCompleted}/{b.tasksTotal})</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-gray-500">No batches found.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Worker Engagement Table */}
-      {data?.workerEngagement?.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
-          <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-2xl shadow-[#a4c692]/20 bg-gradient-to-br from-white to-[#f8fdf3] overflow-hidden">
-            <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0]">
-              <CardTitle className="text-[#3d5a36]">Worker Engagement</CardTitle>
-              <CardDescription className="text-[#556d4a]">Response breakdown per worker</CardDescription>
+        {/* TAB 2: Upcoming Activities */}
+        <TabsContent value="upcoming">
+          <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-xl shadow-[#a4c692]/10 bg-white">
+            <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0] rounded-t-[1.5rem]">
+              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><Calendar className="h-5 w-5" /> Upcoming Farm Activities</CardTitle>
+              <CardDescription>Schedules due soon requiring labor or material preparation.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-[#f3faf2]">
+                  <TableRow>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Batch</TableHead>
+                    <TableHead>Activity / Task</TableHead>
+                    <TableHead>Category</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.upcomingActivities?.length > 0 ? data.upcomingActivities.map((a: any) => (
+                    <TableRow key={a.id} className="hover:bg-[#eff7ed]">
+                      <TableCell className="font-medium text-[#3d5a36]">{fmtDate(a.due_date)}</TableCell>
+                      <TableCell className="text-[#556d4a]">{a.batchName}</TableCell>
+                      <TableCell className="font-semibold text-[#5d8044]">{a.taskName}</TableCell>
+                      <TableCell><Badge variant="outline">{a.category || 'General'}</Badge></TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-gray-500">No upcoming activities found.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 3: Worker Analytics */}
+        <TabsContent value="workers" className="space-y-4">
+          <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-xl shadow-[#a4c692]/10 bg-white">
+            <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0] rounded-t-[1.5rem]">
+              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><Users className="h-5 w-5" /> Worker Response Monitoring</CardTitle>
+              <CardDescription>Identify workers needing supervision, based on response rates and delays.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-[#f3faf2]">
                   <TableRow>
                     <TableHead>Worker</TableHead>
-                    <TableHead>Sent</TableHead>
-                    <TableHead>DONE</TableHead>
-                    <TableHead>DELAY</TableHead>
-                    <TableHead>HELP</TableHead>
-                    <TableHead>PEST</TableHead>
-                    <TableHead>Pending</TableHead>
+                    <TableHead>Tasks Assigned</TableHead>
+                    <TableHead>Completed (DONE)</TableHead>
+                    <TableHead>Delayed (DELAY)</TableHead>
+                    <TableHead>Issues (HELP/PEST)</TableHead>
+                    <TableHead>Avg. Response Time</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.workerEngagement.map((w: any, i: number) => (
-                    <motion.tr key={i} className="hover:bg-[#eff7ed]"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}>
+                  {data?.workerMonitoring?.length > 0 ? data.workerMonitoring.map((w: any) => (
+                    <TableRow key={w.id} className="hover:bg-[#eff7ed]">
                       <TableCell>
                         <p className="font-medium text-[#3d5a36]">{w.name}</p>
-                        <p className="text-xs text-[#7b8f6f] font-mono">{w.phone}</p>
+                        <p className="text-xs text-gray-500">{w.phone}</p>
                       </TableCell>
-                      <TableCell className="font-semibold text-[#3d5a36]">{w.total_sent}</TableCell>
+                      <TableCell className="text-gray-600 font-semibold">{w.total_sent}</TableCell>
                       <TableCell><Badge className="bg-green-50 text-green-700 border-green-200">{w.done_count}</Badge></TableCell>
-                      <TableCell><Badge className="bg-yellow-50 text-yellow-700 border-yellow-200">{w.delay_count}</Badge></TableCell>
-                      <TableCell><Badge className="bg-orange-50 text-orange-700 border-orange-200">{w.help_count}</Badge></TableCell>
-                      <TableCell><Badge className="bg-red-50 text-red-700 border-red-200">{w.pest_count}</Badge></TableCell>
-                      <TableCell><Badge variant="outline" className="text-gray-500">{w.pending_count}</Badge></TableCell>
-                    </motion.tr>
-                  ))}
+                      <TableCell><Badge className={w.delay_count > 0 ? "bg-yellow-50 text-yellow-700 border-yellow-200" : "bg-gray-50 text-gray-400 border-gray-200"}>{w.delay_count}</Badge></TableCell>
+                      <TableCell><Badge className={w.help_count > 0 ? "bg-red-50 text-red-700 border-red-200" : "bg-gray-50 text-gray-400 border-gray-200"}>{w.help_count}</Badge></TableCell>
+                      <TableCell className="text-[#556d4a]">{w.avg_response_time ? `${w.avg_response_time} min(s)` : '-'}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={6} className="text-center py-6 text-gray-500">No worker responses found.</TableCell></TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-        </motion.div>
-      )}
 
-      {/* PDF generation overlay */}
-      {generating && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-[#5d8044]" />
-            <p className="text-[#3d5a36] font-semibold">Building your PDF report...</p>
-            <p className="text-xs text-gray-400">Download will start automatically</p>
+          <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-xl shadow-[#a4c692]/10 bg-white">
+            <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0] rounded-t-[1.5rem]">
+              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Worker Assignments</CardTitle>
+              <CardDescription>Current labor distribution across farm batches.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-[#f3faf2]">
+                  <TableRow>
+                    <TableHead>Worker</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>Assigned Batches</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.workerAssignments?.length > 0 ? data.workerAssignments.map((w: any) => (
+                    <TableRow key={w.id} className="hover:bg-[#eff7ed]">
+                      <TableCell className="font-medium text-[#3d5a36]">{w.name}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {w.roles.length > 0 ? w.roles.map((r: string) => <Badge key={r} variant="outline">{r}</Badge>) : <span className="text-gray-400 text-sm">Unassigned</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {w.batches.length > 0 ? w.batches.map((b: string) => <Badge key={b} className="bg-[#e4fde1] text-[#5d8044] hover:bg-[#d9ead6]">{b}</Badge>) : <span className="text-gray-400 text-sm">No batches</span>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={3} className="text-center py-6 text-gray-500">No workers found.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 4: Alerts & Effectiveness */}
+        <TabsContent value="alerts" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatCard title="Total Advisories Sent" value={data?.advisoryEffectiveness?.totalSent || 0} icon={<MessageSquare className="h-5 w-5"/>} color="border-l-[#5d8044]" textColor="text-[#3d5a36]"/>
+            <StatCard title="Acknowledged Rate" value={data?.advisoryEffectiveness?.totalSent ? `${Math.round((data.advisoryEffectiveness.acknowledged / data.advisoryEffectiveness.totalSent) * 100)}%` : '0%'} icon={<TrendingUp className="h-5 w-5"/>} color="border-l-green-500" textColor="text-green-700"/>
+            <StatCard title="Total Delays" value={data?.advisoryEffectiveness?.delayed || 0} icon={<Clock className="h-5 w-5"/>} color="border-l-yellow-500" textColor="text-yellow-700"/>
           </div>
-        </div>
-      )}
+
+          <Card className="border border-red-200 rounded-[1.5rem] shadow-xl shadow-red-900/5 bg-white">
+            <CardHeader className="bg-red-50 p-6 border-b border-red-100 rounded-t-[1.5rem]">
+              <CardTitle className="text-red-800 flex items-center gap-2"><ShieldAlert className="h-5 w-5" /> Pest and Emergency Alerts</CardTitle>
+              <CardDescription className="text-red-600">Urgent issues reported by field workers.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-white">
+                  <TableRow>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Worker</TableHead>
+                    <TableHead>Alert Type</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.pestAlerts?.length > 0 ? data.pestAlerts.map((a: any) => (
+                    <TableRow key={a.id} className="hover:bg-red-50/50">
+                      <TableCell className="font-medium text-red-900">{fmtDate(a.received_at || a.created_at)}</TableCell>
+                      <TableCell>
+                        <p className="font-medium text-red-800">{a.workerName || 'Unknown'}</p>
+                        <p className="text-xs text-red-500">{a.phone}</p>
+                      </TableCell>
+                      <TableCell><Badge className="bg-red-100 text-red-800 border-red-300">{a.alertType}</Badge></TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={3} className="text-center py-6 text-gray-500">No alerts found for this period.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }

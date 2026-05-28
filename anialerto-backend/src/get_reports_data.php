@@ -11,7 +11,7 @@ if ($conn->connect_error) {
     exit();
 }
 
-// Safe query helper — returns [] instead of crashing on failure
+// Helpers
 function safeRows($conn, $sql) {
     $res = $conn->query($sql);
     if (!$res || $res === true) return [];
@@ -20,132 +20,183 @@ function safeRows($conn, $sql) {
     return $rows;
 }
 
-// ── 1. Daily volume (last 14 days) ───────────────────────────────────────────
-$volRows = safeRows($conn, "
-    SELECT DATE(created_at) AS date, COUNT(*) AS cnt
-    FROM   sms_logs
-    WHERE  direction = 'Outbound'
-    GROUP  BY DATE(created_at)
-    ORDER  BY date DESC
-    LIMIT  14
+// Filters
+$batch_id   = isset($_GET['batch_id']) ? intval($_GET['batch_id']) : 0;
+$worker_id  = isset($_GET['worker_id']) ? intval($_GET['worker_id']) : 0;
+$category   = isset($_GET['category']) ? $conn->real_escape_string($_GET['category']) : '';
+$start_date = isset($_GET['start_date']) ? $conn->real_escape_string($_GET['start_date']) : '';
+$end_date   = isset($_GET['end_date']) ? $conn->real_escape_string($_GET['end_date']) : '';
+
+// Base conditions for tasks
+$task_conds = ["1=1"];
+if ($batch_id > 0) $task_conds[] = "st.batch_id = $batch_id";
+if ($category)     $task_conds[] = "mt.category = '$category'";
+if ($start_date)   $task_conds[] = "st.due_date >= '$start_date'";
+if ($end_date)     $task_conds[] = "st.due_date <= '$end_date'";
+$task_where = implode(" AND ", $task_conds);
+
+// Base conditions for logs
+$log_conds = ["1=1"];
+if ($worker_id > 0) $log_conds[] = "sl.worker_id = $worker_id";
+if ($start_date)    $log_conds[] = "DATE(sl.created_at) >= '$start_date'";
+if ($end_date)      $log_conds[] = "DATE(sl.created_at) <= '$end_date'";
+$log_where = implode(" AND ", $log_conds);
+
+
+// 1. Task Completion Report
+$taskCompletionRows = safeRows($conn, "
+    SELECT st.status, COUNT(*) as cnt
+    FROM scheduled_tasks st
+    JOIN message_templates mt ON st.template_id = mt.id
+    WHERE $task_where
+    GROUP BY st.status
 ");
-$volume = [];
-foreach ($volRows as $r) {
-    $volume[] = ["date" => $r['date'], "count" => (int)$r['cnt']];
+$taskCompletion = ["Completed" => 0, "Pending" => 0, "Delayed" => 0, "Cancelled" => 0];
+foreach($taskCompletionRows as $r) {
+    $status = ucfirst(strtolower($r['status']));
+    if (isset($taskCompletion[$status])) $taskCompletion[$status] = (int)$r['cnt'];
 }
 
-// ── 2. Per-worker engagement breakdown ───────────────────────────────────────
-$wRows = safeRows($conn, "
-    SELECT
-        w.id, w.name, w.phone,
-        COUNT(sl.id)                                                     AS total_sent,
-        SUM(CASE WHEN sl.response_text = 'DONE'  THEN 1 ELSE 0 END)    AS done_count,
-        SUM(CASE WHEN sl.response_text = 'DELAY' THEN 1 ELSE 0 END)    AS delay_count,
-        SUM(CASE WHEN sl.response_text = 'HELP'  THEN 1 ELSE 0 END)    AS help_count,
-        SUM(CASE WHEN sl.response_text = 'PEST'  THEN 1 ELSE 0 END)    AS pest_count,
-        SUM(CASE WHEN sl.response_text IS NULL   THEN 1 ELSE 0 END)    AS pending_count
-    FROM   workers w
-    LEFT JOIN sms_logs sl
-           ON w.id = sl.worker_id AND sl.direction = 'Outbound'
-    WHERE  w.status = 'Active'
-    GROUP  BY w.id, w.name, w.phone
-    ORDER  BY total_sent DESC
+
+// 2. Worker Response Monitoring Report
+$workerMonitoringRows = safeRows($conn, "
+    SELECT w.id, w.name, w.phone,
+           COUNT(sl.id) as total_sent,
+           SUM(CASE WHEN sl.response_text = 'DONE' THEN 1 ELSE 0 END) as done_count,
+           SUM(CASE WHEN sl.response_text = 'DELAY' THEN 1 ELSE 0 END) as delay_count,
+           SUM(CASE WHEN sl.response_text IN ('HELP', 'PEST', 'UOD') THEN 1 ELSE 0 END) as help_count,
+           AVG(CASE WHEN sl.received_at IS NOT NULL AND sl.sent_at IS NOT NULL
+                    THEN TIMESTAMPDIFF(MINUTE, sl.sent_at, sl.received_at)
+                    ELSE NULL END) as avg_response_time
+    FROM workers w
+    LEFT JOIN sms_logs sl ON w.id = sl.worker_id AND sl.direction = 'Outbound'
+    WHERE w.status = 'Active' AND $log_where
+    GROUP BY w.id, w.name, w.phone
+    ORDER BY total_sent DESC
 ");
-$workers = [];
-foreach ($wRows as $r) {
-    $workers[] = [
-        "name"          => $r['name'],
-        "phone"         => $r['phone'],
-        "total_sent"    => (int)$r['total_sent'],
-        "done_count"    => (int)$r['done_count'],
-        "delay_count"   => (int)$r['delay_count'],
-        "help_count"    => (int)$r['help_count'],
-        "pest_count"    => (int)$r['pest_count'],
-        "pending_count" => (int)$r['pending_count'],
+$workerMonitoring = [];
+foreach($workerMonitoringRows as $r) {
+    $workerMonitoring[] = [
+        "id" => $r['id'],
+        "name" => $r['name'],
+        "phone" => $r['phone'],
+        "total_sent" => (int)$r['total_sent'],
+        "done_count" => (int)$r['done_count'],
+        "delay_count" => (int)$r['delay_count'],
+        "help_count" => (int)$r['help_count'],
+        "avg_response_time" => $r['avg_response_time'] ? round($r['avg_response_time']) : null
     ];
 }
 
-// ── 3. Summary — derived from worker data (avoids a fragile aggregate query) ─
-$total       = array_sum(array_column($workers, 'total_sent'));
-$completed   = array_sum(array_column($workers, 'done_count'));
-$delayed     = array_sum(array_column($workers, 'delay_count'));
-$helpReqs    = array_sum(array_column($workers, 'help_count'));
-$pestRpts    = array_sum(array_column($workers, 'pest_count'));
-$pending     = array_sum(array_column($workers, 'pending_count'));
-$activeWkrs  = count(array_filter($workers, fn($w) => $w['total_sent'] > 0));
-
-// Fallback: if worker table is empty, count from sms_logs directly
-if ($total === 0 && count($volume) > 0) {
-    $total = array_sum(array_column($volume, 'count'));
-}
-
-// ── 4. Response/status distribution ─────────────────────────────────────────
-$distRows = safeRows($conn, "
-    SELECT COALESCE(response_text, 'Pending') AS name, COUNT(*) AS value
-    FROM   sms_logs
-    WHERE  direction = 'Outbound'
-    GROUP  BY response_text
-    ORDER  BY value DESC
+// 3. Upcoming Farm Activities
+$upcomingActivities = safeRows($conn, "
+    SELECT st.id, mt.name as taskName, fb.name as batchName, st.due_date, mt.category
+    FROM scheduled_tasks st
+    JOIN message_templates mt ON st.template_id = mt.id
+    JOIN farm_batches fb ON st.batch_id = fb.id
+    WHERE st.status = 'Pending' AND st.due_date >= CURDATE() AND $task_where
+    ORDER BY st.due_date ASC
+    LIMIT 50
 ");
-$distribution = [];
-foreach ($distRows as $r) {
-    $distribution[] = [
-        "name"    => $r['name'],
-        "value"   => (int)$r['value'],
-        "percent" => $total > 0 ? round(((int)$r['value'] / $total) * 100, 1) : 0,
-    ];
-}
 
-// ── 5. Pest alerts (graceful — table/columns may differ) ─────────────────────
-$pestAlerts = [];
-$tblCheck = $conn->query("SHOW TABLES LIKE 'pest_alerts'");
-if ($tblCheck && $tblCheck->num_rows > 0) {
-    $colRes = $conn->query("SHOW COLUMNS FROM pest_alerts");
-    $cols = [];
-    if ($colRes) {
-        while ($c = $colRes->fetch_assoc()) $cols[] = $c['Field'];
+// 4. Pest and Emergency Alerts
+$pestAlerts = safeRows($conn, "
+    SELECT sl.id, w.name as workerName, sl.phone, sl.response_text as alertType, sl.received_at, sl.created_at
+    FROM sms_logs sl
+    LEFT JOIN workers w ON sl.worker_id = w.id
+    WHERE sl.response_text IN ('HELP', 'PEST', 'UOD') AND $log_where
+    ORDER BY COALESCE(sl.received_at, sl.created_at) DESC
+    LIMIT 50
+");
+
+// 5. Farm Batch Progress
+$batchProgressRows = safeRows($conn, "
+    SELECT fb.id, fb.name, fb.planting_date, fb.status,
+           COUNT(st.id) as tasksTotal,
+           SUM(CASE WHEN st.status = 'Completed' THEN 1 ELSE 0 END) as tasksCompleted
+    FROM farm_batches fb
+    LEFT JOIN scheduled_tasks st ON fb.id = st.batch_id
+    WHERE fb.status IN ('Active', 'Planning')
+    GROUP BY fb.id, fb.name, fb.planting_date, fb.status
+");
+$batchProgress = [];
+foreach($batchProgressRows as $r) {
+    $cropDay = null;
+    if ($r['planting_date'] && $r['status'] == 'Active') {
+        $diff = strtotime(date('Y-m-d')) - strtotime($r['planting_date']);
+        $cropDay = max(0, floor($diff / (60 * 60 * 24)));
     }
-
-    $dateCol = in_array('reported_at', $cols) ? 'pa.reported_at'
-             : (in_array('created_at',  $cols) ? 'pa.created_at' : 'NULL');
-    $wIdCol  = in_array('worker_id', $cols) ? 'pa.worker_id' : 'NULL';
-    $bIdCol  = in_array('batch_id',  $cols) ? 'pa.batch_id'  : 'NULL';
-    $stCol   = in_array('status',    $cols) ? 'pa.status'    : "'-'";
-
-    $joinW = $wIdCol !== 'NULL' ? "LEFT JOIN workers     w  ON w.id  = $wIdCol" : "";
-    $joinB = $bIdCol !== 'NULL' ? "LEFT JOIN farm_batches fb ON fb.id = $bIdCol" : "";
-
-    $pestSql = "
-        SELECT
-            $dateCol                                          AS reported_at,
-            " . ($wIdCol !== 'NULL' ? "w.name"  : "'-'") . " AS worker_name,
-            " . ($wIdCol !== 'NULL' ? "w.phone" : "'-'") . " AS phone,
-            " . ($bIdCol !== 'NULL' ? "fb.name" : "'-'") . " AS batch_name,
-            $stCol AS status
-        FROM pest_alerts pa
-        $joinW $joinB
-        ORDER BY $dateCol DESC
-        LIMIT 20
-    ";
-    $pestAlerts = safeRows($conn, $pestSql);
+    $batchProgress[] = [
+        "id" => $r['id'],
+        "name" => $r['name'],
+        "cropDay" => $cropDay,
+        "status" => $r['status'],
+        "tasksCompleted" => (int)$r['tasksCompleted'],
+        "tasksTotal" => (int)$r['tasksTotal'],
+        "progress" => $r['tasksTotal'] > 0 ? round(((int)$r['tasksCompleted'] / (int)$r['tasksTotal']) * 100) : 0
+    ];
 }
+
+// 6. Worker Assignment Report
+$workerAssignmentsRows = safeRows($conn, "
+    SELECT w.id, w.name, bw.role, fb.name as batchName
+    FROM workers w
+    LEFT JOIN batch_workers bw ON w.id = bw.worker_id
+    LEFT JOIN farm_batches fb ON bw.batch_id = fb.id
+    WHERE w.status = 'Active'
+    ORDER BY w.name ASC
+");
+$wMap = [];
+foreach($workerAssignmentsRows as $r) {
+    if (!isset($wMap[$r['id']])) {
+        $wMap[$r['id']] = [
+            "id" => $r['id'],
+            "name" => $r['name'],
+            "roles" => [],
+            "batches" => []
+        ];
+    }
+    if ($r['role'] && !in_array($r['role'], $wMap[$r['id']]['roles'])) {
+        $wMap[$r['id']]['roles'][] = $r['role'];
+    }
+    if ($r['batchName'] && !in_array($r['batchName'], $wMap[$r['id']]['batches'])) {
+        $wMap[$r['id']]['batches'][] = $r['batchName'];
+    }
+}
+$workerAssignments = array_values($wMap);
+
+// 7. Advisory Effectiveness
+$advisoryRows = safeRows($conn, "
+    SELECT
+        COUNT(*) as total_sent,
+        SUM(CASE WHEN response_text IN ('DONE', 'DELAY', 'HELP', 'PEST', 'UOD') THEN 1 ELSE 0 END) as acknowledged,
+        SUM(CASE WHEN response_text = 'DELAY' THEN 1 ELSE 0 END) as total_delayed
+    FROM sms_logs sl
+    WHERE direction = 'Outbound' AND $log_where
+");
+$advisory = $advisoryRows[0] ?? ["total_sent"=>0, "acknowledged"=>0, "total_delayed"=>0];
+$advisoryEffectiveness = [
+    "totalSent" => (int)$advisory['total_sent'],
+    "acknowledged" => (int)$advisory['acknowledged'],
+    "delayed" => (int)$advisory['total_delayed']
+];
+
+// Fetch Filter Options
+$filterOptions = [
+    "batches" => safeRows($conn, "SELECT id, name FROM farm_batches ORDER BY name"),
+    "workers" => safeRows($conn, "SELECT id, name FROM workers WHERE status='Active' ORDER BY name"),
+    "categories" => safeRows($conn, "SELECT DISTINCT category FROM message_templates WHERE category IS NOT NULL ORDER BY category")
+];
 
 echo json_encode([
-    "summary" => [
-        "total"          => $total,
-        "activeWorkers"  => $activeWkrs,
-        "completed"      => $completed,
-        "delayed"        => $delayed,
-        "helpRequests"   => $helpReqs,
-        "pestReports"    => $pestRpts,
-        "pending"        => $pending,
-        "completionRate" => $total > 0 ? round(($completed / $total) * 100) : 0,
-    ],
-    "dailyVolume"        => $volume,
-    "statusDistribution" => $distribution,
-    "workerEngagement"   => $workers,
-    "pestAlerts"         => $pestAlerts,
-    "generatedAt"        => date("Y-m-d H:i:s"),
+    "taskCompletion" => $taskCompletion,
+    "workerMonitoring" => $workerMonitoring,
+    "upcomingActivities" => $upcomingActivities,
+    "pestAlerts" => $pestAlerts,
+    "batchProgress" => $batchProgress,
+    "workerAssignments" => $workerAssignments,
+    "advisoryEffectiveness" => $advisoryEffectiveness,
+    "filterOptions" => $filterOptions
 ]);
 
 $conn->close();

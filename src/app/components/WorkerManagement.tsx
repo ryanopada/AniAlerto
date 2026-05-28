@@ -57,6 +57,7 @@ export function WorkerManagement() {
   const [smsLoading, setSmsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
+  const [selectedFilterBatchId, setSelectedFilterBatchId] = useState<string>("");
 
   // Quick Send SMS state
   const [isQuickSendOpen, setIsQuickSendOpen] = useState(false);
@@ -78,10 +79,12 @@ export function WorkerManagement() {
   const BATCH_API_URL = "http://localhost/anialerto-backend/src/batches.php";
   const SMS_HISTORY_API_URL = "http://localhost/anialerto-backend/src/worker_sms_history.php";
 
-  const fetchWorkers = async () => {
+  const fetchWorkers = async (batchId?: string) => {
     setLoading(true);
     try {
-      const response = await fetch(WORKER_API_URL);
+      const currentBatchId = batchId !== undefined ? batchId : selectedFilterBatchId;
+      const url = currentBatchId ? `${WORKER_API_URL}?batch_id=${currentBatchId}` : WORKER_API_URL;
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch workers");
       const data = await response.json();
       // Map API fields: batch_name → assignedBatch (display), batch_id → batchId
@@ -368,10 +371,23 @@ export function WorkerManagement() {
               <CardTitle className="text-[#3d5a36]">Personnel Registry</CardTitle>
               <CardDescription className="text-[#556d4a]">Manage your field team assignments</CardDescription>
             </div>
-            <div className="flex gap-2 w-full md:w-auto">
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              <select
+                className="border rounded-md px-3 h-10 bg-white shadow-sm border-[#d9ead6] text-sm text-[#556d4a] outline-none focus:ring-2 focus:ring-[#a4c692]"
+                value={selectedFilterBatchId}
+                onChange={(e) => {
+                  setSelectedFilterBatchId(e.target.value);
+                  fetchWorkers(e.target.value);
+                }}
+              >
+                <option value="">All Batches</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
               <div className="relative flex-1 md:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7b8f6f]" />
-                <Input placeholder="Search..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <Input placeholder="Search..." className="pl-9 h-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
             </div>
           </CardHeader>

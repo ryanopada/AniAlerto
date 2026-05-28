@@ -22,6 +22,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch($method) {
     case 'GET':
+        $batch_filter = isset($_GET['batch_id']) ? intval($_GET['batch_id']) : 0;
+
         // Join batch_workers + farm_batches to include each worker's current batch assignment.
         // GROUP BY w.id so that workers in multiple batches still return a single row.
         $sql = "SELECT w.id, w.name, w.phone, w.status,
@@ -29,9 +31,14 @@ switch($method) {
                        MIN(fb.name)      AS batch_name
                 FROM workers w
                 LEFT JOIN batch_workers bw ON w.id  = bw.worker_id
-                LEFT JOIN farm_batches  fb ON fb.id = bw.batch_id
-                GROUP BY w.id, w.name, w.phone, w.status
-                ORDER BY w.id DESC";
+                LEFT JOIN farm_batches  fb ON fb.id = bw.batch_id";
+
+        if ($batch_filter > 0) {
+            $sql .= " WHERE w.id IN (SELECT worker_id FROM batch_workers WHERE batch_id = $batch_filter)";
+        }
+
+        $sql .= " GROUP BY w.id, w.name, w.phone, w.status
+                  ORDER BY w.id DESC";
 
         $result = $conn->query($sql);
         $workers = [];

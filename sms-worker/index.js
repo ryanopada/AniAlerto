@@ -102,6 +102,7 @@ async function main() {
       worker_id  INT,
       phone      VARCHAR(20) NOT NULL,
       created_at DATETIME NOT NULL,
+      step       VARCHAR(50) DEFAULT 'MAIN_MENU',
       INDEX idx_phone (phone),
       INDEX idx_created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

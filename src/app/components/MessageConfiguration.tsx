@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 interface MessageTemplate {
   id: string;
   name: string;
-  category: "Preparation / Land Preparation" | "Irrigation / Patubig" | "Pesticide Spray / Pang-uod" | "Herbicide Spray / Pang-damo" | "Fertilizer / Abono 1" | "Fertilizer / Abono 2 / Last Dressing" | "Harvest Readiness" | "Irrigation" | "Fertilization" | "Pest Control" | "Harvest" | "General";
+  category: "First Plowing" | "Harrowing" | "Irrigation / Patubig" | "Pesticide Spray / Pang-uod" | "Herbicide Spray / Pang-damo" | "Fertilizer / Abono 1" | "Fertilizer / Abono 2 / Last Dressing" | "Harvest Readiness" | "Irrigation" | "Fertilization" | "Pest Control" | "Harvest" | "General";
   message: string;
   days_after_planting: number;
   active: boolean | number;
@@ -71,11 +71,10 @@ export function MessageConfiguration() {
 
   const emptyForm = {
     name: "",
-    category: "Preparation / Land Preparation" as MessageTemplate["category"],
+    category: "First Plowing" as MessageTemplate["category"],
     message: "",
     days_after_planting: 0,
     active: true,
-    is_test: false,
     expected_responses: [] as string[],
     batch_id: "" as string,
     scheduled_time: "06:00",
@@ -89,7 +88,11 @@ export function MessageConfiguration() {
     try {
       const response = await fetch(API_URL);
       const data = await response.json();
-      setTemplates(data);
+      const mappedData = data.map((t: any) => ({
+        ...t,
+        scheduled_send_datetime: t.scheduled_send_datetime ? t.scheduled_send_datetime.replace(' ', 'T') : t.scheduled_send_datetime
+      }));
+      setTemplates(mappedData);
     } catch (error) {
       console.error("Error fetching templates:", error);
     }
@@ -99,7 +102,11 @@ export function MessageConfiguration() {
     try {
       const res = await fetch(MANAGE_URL);
       const data = await res.json();
-      setScheduledMessages(Array.isArray(data) ? data : []);
+      const mappedData = Array.isArray(data) ? data.map((m: any) => ({
+        ...m,
+        scheduled_send_datetime: m.scheduled_send_datetime ? m.scheduled_send_datetime.replace(' ', 'T') : m.scheduled_send_datetime
+      })) : [];
+      setScheduledMessages(mappedData);
     } catch (e) {
       console.error("Error fetching scheduled messages:", e);
     }
@@ -122,10 +129,9 @@ export function MessageConfiguration() {
   }, []);
 
   const categories: MessageTemplate["category"][] = [
-    "Preparation / Land Preparation",
+    "First Plowing",
+    "Harrowing",
     "Irrigation / Patubig",
-    "Pesticide Spray / Pang-uod",
-    "Herbicide Spray / Pang-damo",
     "Fertilizer / Abono 1",
     "Fertilizer / Abono 2 / Last Dressing",
     "Harvest Readiness",
@@ -145,19 +151,19 @@ export function MessageConfiguration() {
       message: template.message,
       days_after_planting: template.days_after_planting,
       active: !!template.active,
-      is_test: !!(template.is_test),
       expected_responses: template.expected_responses || [],
       batch_id: template.batch_id ?? "",
       scheduled_time: template.scheduled_time ?? "06:00",
-      plant_date: template.plant_date ?? "",
-      scheduled_send_datetime: template.scheduled_send_datetime ?? "",
+      plant_date: template.plant_date || "",
+      scheduled_send_datetime: template.scheduled_send_datetime ? template.scheduled_send_datetime.replace(' ', 'T') : "",
     });
     setIsDialogOpen(true);
   };
 
   const getDaysOffset = (cat: string): number => {
     switch (cat) {
-      case "Preparation / Land Preparation": return 0;
+      case "First Plowing": return -14;
+      case "Harrowing": return -7;
       case "Irrigation / Patubig": return 8;
       case "Pesticide Spray / Pang-uod": return 15;
       case "Herbicide Spray / Pang-damo": return 20;
@@ -168,51 +174,66 @@ export function MessageConfiguration() {
     }
   };
 
-  const computeScheduledDate = (plantDate: string | null, category: string, timeStr: string): string => {
+  const computeScheduledDate = (plantDate: string | null, daysOffset: number, timeStr: string): string => {
     if (!plantDate) return "";
-    const p = new Date(plantDate);
+    let p = new Date(plantDate.replace(' ', 'T')); // Safari safe parsing
+    if (isNaN(p.getTime())) p = new Date(plantDate); // Fallback
     if (isNaN(p.getTime())) return "";
-    const days = getDaysOffset(category);
-    p.setDate(p.getDate() + days);
+
+    const offset = Number(daysOffset);
+    if (!isNaN(offset)) {
+      p.setDate(p.getDate() + offset);
+    }
     
-    // Add time formatting
-    const [hh, mm] = timeStr.split(':');
-    p.setHours(parseInt(hh || "07"), parseInt(mm || "00"), 0, 0);
+    if (timeStr) {
+      const [hh, mm] = timeStr.split(':');
+      const h = parseInt(hh, 10);
+      const m = parseInt(mm, 10);
+      if (!isNaN(h) && !isNaN(m)) {
+        p.setHours(h, m, 0, 0);
+      } else {
+        p.setHours(7, 0, 0, 0);
+      }
+    } else {
+      p.setHours(7, 0, 0, 0);
+    }
     
-    // Format to YYYY-MM-DDTHH:mm
+    if (isNaN(p.getTime())) return "";
+    
     const year = p.getFullYear();
     const month = String(p.getMonth() + 1).padStart(2, '0');
     const day = String(p.getDate()).padStart(2, '0');
     const hour = String(p.getHours()).padStart(2, '0');
     const min = String(p.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hour}:${min}`;
+    return `${year}-${month}-${day}T${hour}:${min}:00`;
   };
 
   const handleBatchChange = (batchId: string) => {
     const batch = batches.find(b => b.id === batchId);
     const plantDate = batch?.planting_date || "";
-    const newDate = computeScheduledDate(plantDate, formData.category, formData.scheduled_time || "07:00");
+    const daysOffset = formData.days_after_planting;
+    const newDate = computeScheduledDate(plantDate, daysOffset, formData.scheduled_time || "07:00");
     setFormData(prev => ({
       ...prev,
       batch_id: batchId,
       plant_date: plantDate,
-      scheduled_send_datetime: newDate,
-      days_after_planting: getDaysOffset(prev.category)
+      scheduled_send_datetime: newDate
     }));
   };
 
   const handleCategoryChange = (cat: MessageTemplate["category"]) => {
-    const newDate = computeScheduledDate(formData.plant_date, cat, formData.scheduled_time || "07:00");
+    const daysOffset = getDaysOffset(cat);
+    const newDate = computeScheduledDate(formData.plant_date, daysOffset, formData.scheduled_time || "07:00");
     setFormData(prev => ({
       ...prev,
       category: cat,
       scheduled_send_datetime: newDate,
-      days_after_planting: getDaysOffset(cat)
+      days_after_planting: daysOffset
     }));
   };
 
   const handleTimeChange = (timeStr: string) => {
-    const newDate = computeScheduledDate(formData.plant_date, formData.category, timeStr);
+    const newDate = computeScheduledDate(formData.plant_date, formData.days_after_planting, timeStr);
     setFormData(prev => ({
       ...prev,
       scheduled_time: timeStr,
@@ -220,7 +241,7 @@ export function MessageConfiguration() {
     }));
   };
 
-  const daysCalc = getDaysOffset(formData.category);
+  const daysCalc = formData.days_after_planting;
 
   const handleViewTemplate = (template: MessageTemplate) => {
     setViewingTemplate(template);
@@ -290,12 +311,9 @@ export function MessageConfiguration() {
       ...formData,
       id: editingTemplate?.id,
       active: formData.active ? 1 : 0,
-      is_test: formData.is_test ? 1 : 0,
       trigger_type: "days_after_planting",
       batch_id: formData.batch_id || null,
-      scheduled_time: formData.scheduled_send_datetime
-        ? formData.scheduled_send_datetime.slice(11, 16)
-        : formData.scheduled_time || "06:00",
+      scheduled_time: formData.scheduled_time || "07:00",
       days_after_planting: computedDays,
       plant_date: formData.plant_date || null,
       scheduled_send_datetime: formData.scheduled_send_datetime || null,
@@ -337,7 +355,8 @@ export function MessageConfiguration() {
 
   const getCategoryColor = (category: MessageTemplate["category"]) => {
     switch (category) {
-      case "Preparation / Land Preparation": return "bg-gray-100 text-gray-800";
+      case "First Plowing": return "bg-gray-100 text-gray-800";
+      case "Harrowing": return "bg-slate-100 text-slate-800";
       case "Irrigation / Patubig": return "bg-blue-100 text-blue-800";
       case "Pesticide Spray / Pang-uod": return "bg-red-100 text-red-800";
       case "Herbicide Spray / Pang-damo": return "bg-orange-100 text-orange-800";
@@ -435,7 +454,7 @@ export function MessageConfiguration() {
                   </div>
                   {formData.plant_date && (
                     <p className="text-xs text-[#5d8044] font-medium">
-                      Rule: {daysCalc === 0 ? "Day 0 (Plant Date)" : `${daysCalc} days after plant date`}
+                      Rule: {daysCalc === 0 ? "Day 0 (Plant Date)" : daysCalc < 0 ? `${Math.abs(daysCalc)} days before plant date` : `${daysCalc} days after plant date`}
                     </p>
                   )}
                 </div>
@@ -460,21 +479,6 @@ export function MessageConfiguration() {
                 <Label htmlFor="message">Message Content</Label>
                 <Textarea id="message" placeholder="Enter the SMS message content..." value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} required />
                 <p className="text-xs text-gray-500">Character count: {formData.message.length} (SMS limit: 160 characters per message)</p>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                <input
-                  type="checkbox"
-                  id="is_test"
-                  checked={!!formData.is_test}
-                  onChange={(e) => setFormData({ ...formData, is_test: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                <div>
-                  <Label htmlFor="is_test" className="flex items-center gap-2 cursor-pointer text-amber-800 font-medium">
-                    <FlaskConical className="h-4 w-4" /> Mark as Test Message
-                  </Label>
-                  <p className="text-xs text-amber-600 mt-0.5">The scheduler will skip this message — it won't be sent to workers.</p>
-                </div>
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="active" checked={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.checked })} className="h-4 w-4" />

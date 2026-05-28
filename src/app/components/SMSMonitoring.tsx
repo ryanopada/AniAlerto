@@ -53,13 +53,10 @@ interface SMSLog {
   created_at: string | null;
 }
 
-type DateFilter = "all" | "today" | "7days" | "30days" | "custom";
+type DateFilter = "today" | "custom";
 
 const DATE_FILTER_OPTIONS: { label: string; value: DateFilter }[] = [
-  { label: "All Time", value: "all" },
   { label: "Today",    value: "today" },
-  { label: "7 Days",   value: "7days" },
-  { label: "30 Days",  value: "30days" },
   { label: "Custom",   value: "custom" },
 ];
 
@@ -106,7 +103,7 @@ export function SMSMonitoring() {
   const [refreshing,  setRefreshing]  = useState(false);
   const [search,      setSearch]      = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [dateFilter,  setDateFilter]  = useState<DateFilter>("all");
+  const [dateFilter,  setDateFilter]  = useState<DateFilter>("today");
   const [dateFrom,    setDateFrom]    = useState("");
   const [dateTo,      setDateTo]      = useState("");
   // ── Global stats from API (accurate across ALL pages, not just the current one)
@@ -254,11 +251,7 @@ export function SMSMonitoring() {
             : 'Loading...'}
           {' · '}
           <span className="font-semibold text-[#556d4a]">
-            {dateFilter === 'all'    ? 'All Time'
-           : dateFilter === 'today'  ? 'Today'
-           : dateFilter === '7days'  ? 'Last 7 Days'
-           : dateFilter === '30days' ? 'Last 30 Days'
-           : `${dateFrom || '?'} → ${dateTo || '?'}`}
+            {dateFilter === 'today' ? 'Today' : `${dateFrom || '?'} → ${dateTo || '?'}`}
           </span>
           {' · auto-refreshes every 10s'}
         </span>
@@ -437,13 +430,13 @@ export function SMSMonitoring() {
                           <Inbox className="h-12 w-12 text-[#c5d9be]" />
                           <p className="font-semibold text-[#556d4a]">No messages found</p>
                           <p className="text-xs">
-                            {search || dateFilter !== "all"
+                            {search || dateFilter !== "today"
                               ? "Try adjusting your filters or search term."
                               : "Outbound SMS messages will appear here once sent."}
                           </p>
-                          {(search || dateFilter !== "all") && (
+                          {(search || dateFilter !== "today") && (
                             <Button size="sm" variant="outline" className="mt-1 text-xs border-[#d9ead6] text-[#3d5a36]"
-                              onClick={() => { setSearch(""); setDateFilter("all"); }}>
+                              onClick={() => { setSearch(""); setDateFilter("today"); }}>
                               Clear filters
                             </Button>
                           )}

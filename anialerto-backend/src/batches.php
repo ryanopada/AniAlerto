@@ -54,7 +54,54 @@ if ($method == 'GET') {
         );
 
         if ($stmt->execute()) {
-            echo json_encode(["status" => "success", "id" => $conn->insert_id]);
+            $batchId = $conn->insert_id;
+            $batchName = $data['name'];
+            $plantingDateStr = $data['plantingDate'];
+            
+            try {
+                $plantDate = new DateTime($plantingDateStr);
+                
+                // Automatically create Land Preparation messages
+                if ($plantDate) {
+                    $templates = [
+                        [
+                            "name" => "First Plowing",
+                            "category" => "First Plowing",
+                            "days_offset" => -14,
+                            "msg" => "First Plowing for {batch_name} is scheduled. Ensure tractors and implements are checked."
+                        ],
+                        [
+                            "name" => "Harrowing",
+                            "category" => "Harrowing",
+                            "days_offset" => -7,
+                            "msg" => "Harrowing for {batch_name} is coming up. Please prepare the fields."
+                        ]
+                    ];
+
+                    $tStmt = $conn->prepare(
+                        "INSERT INTO message_templates 
+                        (name, category, message, trigger_type, days_after_planting, active, batch_id, scheduled_time, plant_date, scheduled_send_datetime, is_test, created_at)
+                        VALUES (?, ?, ?, 'days_after_planting', ?, 1, ?, '06:00:00', ?, ?, 0, NOW())"
+                    );
+
+                    if ($tStmt) {
+                        foreach ($templates as $t) {
+                            $sendDT = clone $plantDate;
+                            $sendDT->modify($t['days_offset'] . ' days');
+                            $sendDTStr = $sendDT->format('Y-m-d') . ' 06:00:00';
+                            $pdStr = $plantDate->format('Y-m-d');
+                            
+                            $tStmt->bind_param("sssiiss", $t['name'], $t['category'], $t['msg'], $t['days_offset'], $batchId, $pdStr, $sendDTStr);
+                            $tStmt->execute();
+                        }
+                        $tStmt->close();
+                    }
+                }
+            } catch (Exception $e) {
+                // Ignore date parsing errors
+            }
+
+            echo json_encode(["status" => "success", "id" => $batchId]);
         } else {
             echo json_encode(["status" => "error", "message" => $stmt->error]);
         }

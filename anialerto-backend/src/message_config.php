@@ -74,11 +74,16 @@ if ($method == 'POST') {
         $sendDT = (strlen($raw) === 16) ? $raw . ':00' : $raw;
     }
 
-    $schedTime = '06:00:00';
-    if ($sendDT) {
-        $schedTime = substr($sendDT, 11, 5) . ':00';
-    } elseif (!empty($data['scheduled_time'])) {
+    if (!empty($data['scheduled_time'])) {
         $schedTime = $data['scheduled_time'] . ':00';
+        // If a specific time was sent and we have a full datetime, override its time portion
+        if ($sendDT) {
+            $sendDT = substr($sendDT, 0, 10) . ' ' . $schedTime;
+        }
+    } elseif ($sendDT) {
+        $schedTime = substr($sendDT, 11, 5) . ':00';
+    } else {
+        $schedTime = '06:00:00';
     }
 
     $daysAfter = 0;
@@ -95,7 +100,6 @@ if ($method == 'POST') {
     $message     = $data['message']      ?? '';
     $triggerType = $data['trigger_type'] ?? 'days_after_planting';
     $active      = isset($data['active']) ? intval($data['active']) : 1;
-    $isTest      = isset($data['is_test']) ? intval($data['is_test']) : 0;
     $isUpdate    = isset($data['id']) && $data['id'];
 
     if ($isUpdate) {
@@ -104,31 +108,31 @@ if ($method == 'POST') {
              SET name=?, category=?, message=?, trigger_type=?,
                  days_after_planting=?, expected_responses=?, active=?,
                  batch_id=?, scheduled_time=?,
-                 plant_date=?, scheduled_send_datetime=?, is_test=?
+                 plant_date=?, scheduled_send_datetime=?
              WHERE id=?"
         );
         $id = intval($data['id']);
         $stmt->bind_param(
-            "ssssisisssiii",
+            "ssssisissssi",
             $name, $category, $message, $triggerType,
             $daysAfter, $responses, $active,
             $batchId, $schedTime,
-            $plantDate, $sendDT, $isTest, $id
+            $plantDate, $sendDT, $id
         );
     } else {
         $stmt = $conn->prepare(
             "INSERT INTO message_templates
              (name, category, message, trigger_type, days_after_planting,
               expected_responses, active, batch_id, scheduled_time,
-              plant_date, scheduled_send_datetime, is_test, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+              plant_date, scheduled_send_datetime, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
         );
         $stmt->bind_param(
-            "ssssisissssi",
+            "ssssisissss",
             $name, $category, $message, $triggerType,
             $daysAfter, $responses, $active,
             $batchId, $schedTime,
-            $plantDate, $sendDT, $isTest
+            $plantDate, $sendDT
         );
     }
 
