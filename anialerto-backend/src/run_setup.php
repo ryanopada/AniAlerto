@@ -130,11 +130,11 @@ try {
       updated_at TIMESTAMP DEFAULT NULL
     );
     INSERT INTO message_templates (id, name, category, message, trigger_type, days_after_planting, expected_responses, active) VALUES
-    (1, 'Pesticide Spray Reminder', 'Pest Control', 'AniAlerto: Day {crop_day} sa {batch_name}. Mag-spray para sa pang-uod/pest prevention. Reply DONE, DELAY, or HELP.', 'days_after_planting', 15, '[\"DONE\", \"DELAY\", \"HELP\"]', 1),
-    (2, 'Herbicide Reminder', 'Pest Control', 'AniAlerto: Day {crop_day} sa {batch_name}. Reminder: herbicide/pangdamo schedule today. Reply DONE or DELAY.', 'days_after_planting', 20, '[\"DONE\", \"DELAY\"]', 1),
-    (3, 'First Fertilizer Reminder', 'Fertilization', 'AniAlerto: Day {crop_day} sa {batch_name}. Unang abono schedule today. Reply DONE or DELAY.', 'days_after_planting', 15, '[\"DONE\", \"DELAY\"]', 1),
-    (4, 'Second/Last Dressing Reminder', 'Fertilization', 'AniAlerto: Day {crop_day} sa {batch_name}. Second/last dressing schedule today. Reply DONE or DELAY.', 'days_after_planting', 40, '[\"FILL\", \"DELAY\"]', 1),
-    (5, 'Harvest Readiness Reminder', 'Harvest', 'AniAlerto: Day {crop_day} sa {batch_name}. Ihanda ang harvest planning and manpower. Reply DONE to acknowledge.', 'days_after_planting', 120, '[\"DONE\"]', 1),
+    (1, 'Pesticide Spray Reminder', 'Pest Control', 'Day {crop_day} sa {batch_name}. Mag-spray para sa pang-uod/pest prevention. Reply DONE, DELAY, or HELP.', 'days_after_planting', 15, '[\"DONE\", \"DELAY\", \"HELP\"]', 1),
+    (2, 'Herbicide Reminder', 'Pest Control', 'Day {crop_day} sa {batch_name}. Reminder: herbicide/pangdamo schedule today. Reply DONE or DELAY.', 'days_after_planting', 20, '[\"DONE\", \"DELAY\"]', 1),
+    (3, 'First Fertilizer Reminder', 'Fertilization', 'Day {crop_day} sa {batch_name}. Unang abono schedule today. Reply DONE or DELAY.', 'days_after_planting', 15, '[\"DONE\", \"DELAY\"]', 1),
+    (4, 'Second/Last Dressing Reminder', 'Fertilization', 'Day {crop_day} sa {batch_name}. Second/last dressing schedule today. Reply DONE or DELAY.', 'days_after_planting', 40, '[\"FILL\", \"DELAY\"]', 1),
+    (5, 'Harvest Readiness Reminder', 'Harvest', 'Day {crop_day} sa {batch_name}. Ihanda ang harvest planning and manpower. Reply DONE to acknowledge.', 'days_after_planting', 120, '[\"DONE\"]', 1),
     (6, 'hello', 'Pest Control', 'aksdfkasdf', 'interval', 11, '[\"DONE\",\"DELAY\",\"HELP\"]', 1);
 
     CREATE TABLE scheduled_tasks (

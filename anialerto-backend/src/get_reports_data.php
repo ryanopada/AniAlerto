@@ -181,6 +181,32 @@ $advisoryEffectiveness = [
     "delayed" => (int)$advisory['total_delayed']
 ];
 
+// 8. Delay Events
+$delayEvents = safeRows($conn, "
+    SELECT w.name AS workerName, fb.name AS batchName, mt.name AS taskName, sl.delay_reason AS reason, sl.received_at AS timestamp
+    FROM sms_logs sl
+    LEFT JOIN workers w ON sl.worker_id = w.id
+    LEFT JOIN scheduled_tasks st ON sl.task_id = st.id
+    LEFT JOIN farm_batches fb ON st.batch_id = fb.id
+    LEFT JOIN message_templates mt ON st.template_id = mt.id
+    WHERE sl.response_text = 'DELAY' AND sl.direction = 'Outbound' AND $log_where
+    ORDER BY sl.received_at DESC
+    LIMIT 100
+");
+
+// 9. Help Events
+$helpEvents = safeRows($conn, "
+    SELECT w.name AS workerName, fb.name AS batchName, mt.name AS taskName, sl.help_category AS category, sl.help_subcategory AS subcategory, sl.received_at AS timestamp
+    FROM sms_logs sl
+    LEFT JOIN workers w ON sl.worker_id = w.id
+    LEFT JOIN scheduled_tasks st ON sl.task_id = st.id
+    LEFT JOIN farm_batches fb ON st.batch_id = fb.id
+    LEFT JOIN message_templates mt ON st.template_id = mt.id
+    WHERE sl.response_text = 'HELP' AND sl.direction = 'Outbound' AND $log_where
+    ORDER BY sl.received_at DESC
+    LIMIT 100
+");
+
 // Fetch Filter Options
 $filterOptions = [
     "batches" => safeRows($conn, "SELECT id, name FROM farm_batches ORDER BY name"),
@@ -196,6 +222,8 @@ echo json_encode([
     "batchProgress" => $batchProgress,
     "workerAssignments" => $workerAssignments,
     "advisoryEffectiveness" => $advisoryEffectiveness,
+    "delayEvents" => $delayEvents,
+    "helpEvents" => $helpEvents,
     "filterOptions" => $filterOptions
 ]);
 

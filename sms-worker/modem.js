@@ -173,7 +173,7 @@ function sendSMS(phone, message) {
     // Prevent duplicate AniAlerto prefix
     const prefix = 'AniAlerto: ';
     let cleanMessage = message.trim();
-    if (!cleanMessage.startsWith(prefix)) {
+    if (!cleanMessage.startsWith('AniAlerto')) {
       cleanMessage = `${prefix}${cleanMessage}`;
     }
 

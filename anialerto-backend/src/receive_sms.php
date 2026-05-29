@@ -29,6 +29,9 @@ $conn->query("
 ");
 // Migrate existing tables — safe to run every request
 $conn->query("ALTER TABLE alerts ADD COLUMN IF NOT EXISTS done_reply VARCHAR(255) DEFAULT NULL");
+$conn->query("ALTER TABLE sms_logs ADD COLUMN IF NOT EXISTS delay_reason VARCHAR(255) DEFAULT NULL");
+$conn->query("ALTER TABLE sms_logs ADD COLUMN IF NOT EXISTS help_category VARCHAR(100) DEFAULT NULL");
+$conn->query("ALTER TABLE sms_logs ADD COLUMN IF NOT EXISTS help_subcategory VARCHAR(255) DEFAULT NULL");
 
 // ── Valid commands (UOD removed) ──────────────────────────────────────────────
 $knownCommands = ['DONE', 'DELAY', 'HELP', 'PEST'];
@@ -105,10 +108,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ── Detect command ────────────────────────────────────────────────────────
-    $upperMsg = strtoupper(trim($message));
+    $cleanMessage = trim($message);
+    $upperMsg = strtoupper($cleanMessage);
     $command  = null;
     foreach ($knownCommands as $cmd) {
         if (strpos($upperMsg, $cmd) === 0) { $command = $cmd; break; }
+    }
+
+    $parsedReason = '';
+    if ($command && stripos($cleanMessage, $command) === 0) {
+        $parsedReason = trim(substr($cleanMessage, strlen($command)));
     }
 
     // ── Resolve worker_id if not provided ────────────────────────────────────
@@ -159,11 +168,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $s = $conn->prepare("INSERT INTO inbound_messages (phone, message, command, received_at, processed_at) VALUES (?, ?, ?, NOW(), NOW())");
     $s->bind_param("sss", $cleanPhone, $message, $command); $s->execute(); $s->close();
 
+    // ── Dispatch context ──────────────────────────────────────────────────────
+    $task      = getTaskContext($conn, $worker_id);
+    $taskId    = $task ? $task['id']         : null;
+    $batchId   = $task ? $task['batch_id']   : null;
+    $category  = $task ? ($task['category'] ?? 'General') : 'General';
+    $batchName = $task ? ($task['batch_name'] ?? '') : '';
+    $adminPhone = getAdminPhone($conn);
+
     // ── Update the matching outbound sms_logs row in-place ────────────────────
     // No new Inbound row — the existing outbound row is mutated to carry the reply.
+    $delayReason = ($command === 'DELAY' && $parsedReason !== '') ? $parsedReason : null;
+    $helpCat     = ($command === 'HELP') ? $category : null;
+    $helpSub     = ($command === 'HELP' && $parsedReason !== '') ? $parsedReason : null;
+
     $s = $conn->prepare(
         "UPDATE sms_logs
             SET response_text = ?,
+                delay_reason  = ?,
+                help_category = ?,
+                help_subcategory = ?,
                 received_at   = NOW(),
                 status        = 'Replied'
           WHERE direction  = 'Outbound'
@@ -177,16 +201,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           ORDER BY created_at DESC
           LIMIT 1"
     );
-    $s->bind_param("sissss", $command, $worker_id, $cleanPhone, $alt, $key10);
+    $s->bind_param("ssssissss", $command, $delayReason, $helpCat, $helpSub, $worker_id, $cleanPhone, $alt, $key10);
     $s->execute(); $s->close();
 
     // ── Dispatch command ──────────────────────────────────────────────────────
-    $task      = getTaskContext($conn, $worker_id);
-    $taskId    = $task ? $task['id']         : null;
-    $batchId   = $task ? $task['batch_id']   : null;
-    $category  = $task ? ($task['category'] ?? 'General') : 'General';
-    $batchName = $task ? ($task['batch_name'] ?? '') : '';
-    $adminPhone = getAdminPhone($conn);
 
     if ($command === 'DONE') {
         if ($task) {

@@ -147,6 +147,42 @@ export function Reports() {
         y = (doc as any).lastAutoTable.finalY + 12;
       }
 
+      if (data.delayEvents && data.delayEvents.length > 0) {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...GREEN);
+        doc.text("Reported Delay Reasons", 14, y);
+        y += 5;
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Timestamp", "Worker", "Batch", "Task", "Delay Reason"]],
+          body: data.delayEvents.map((d: any) => [
+            fmtDate(d.timestamp), d.workerName || "Unknown", d.batchName || "-", d.taskName || "-", d.reason || "-"
+          ]),
+          headStyles: { fillColor: [202, 138, 4] },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
+      if (data.helpEvents && data.helpEvents.length > 0) {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...GREEN);
+        doc.text("Reported Help Requests", 14, y);
+        y += 5;
+        autoTable(doc, {
+          startY: y, margin: { left: 14 },
+          head: [["Timestamp", "Worker", "Batch", "Category", "Subcategory"]],
+          body: data.helpEvents.map((h: any) => [
+            fmtDate(h.timestamp), h.workerName || "Unknown", h.batchName || "-", h.category || "-", h.subcategory || "-"
+          ]),
+          headStyles: { fillColor: [220, 38, 38] },
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+      }
+
       // 3. Upcoming Farm Activities Report
       if (data.upcomingActivities && data.upcomingActivities.length > 0) {
         addSection(
@@ -201,28 +237,10 @@ export function Reports() {
         y = (doc as any).lastAutoTable.finalY + 12;
       }
 
-      // 6. Worker Assignment Report
-      if (data.workerAssignments && data.workerAssignments.length > 0) {
-        addSection(
-          "6. Worker Assignment Report",
-          "assigned workers, assigned farm batches, worker roles",
-          "Helps admin monitor labor distribution."
-        );
-        autoTable(doc, {
-          startY: y, margin: { left: 14 },
-          head: [["Worker", "Roles", "Assigned Batches"]],
-          body: data.workerAssignments.map((w: any) => [
-            w.name, w.roles.join(", ") || "Unassigned", w.batches.join(", ") || "No batches"
-          ]),
-          headStyles: { fillColor: GREEN },
-        });
-        y = (doc as any).lastAutoTable.finalY + 12;
-      }
-
-      // 7. Advisory Effectiveness Report
+      // 6. Advisory Effectiveness Report
       if (data.advisoryEffectiveness) {
         addSection(
-          "7. Advisory Effectiveness Report",
+          "6. Advisory Effectiveness Report",
           "percentage of acknowledged tasks, tasks completed after reminders, delayed task trends",
           "Measures whether advisories are effective."
         );
@@ -239,25 +257,7 @@ export function Reports() {
         y = (doc as any).lastAutoTable.finalY + 18;
       }
 
-      // Final Questions
-      if (y > 220) { doc.addPage(); y = 20; }
-      doc.setFillColor(...LGREEN);
-      doc.rect(10, y, W - 20, 45, "F");
-      y += 8;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...GREEN);
-      doc.text("The reports answer the following critical operations questions:", 14, y);
-      y += 6;
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...DGRAY);
-      doc.text("• Are farm activities being completed?", 16, y); y+=5;
-      doc.text("• Which workers need follow-up?", 16, y); y+=5;
-      doc.text("• Which farm batches need attention?", 16, y); y+=5;
-      doc.text("• What tasks are upcoming?", 16, y); y+=5;
-      doc.text("• Are there pest or emergency issues?", 16, y); y+=5;
-      doc.text("• Are advisories helping operations?", 16, y);
+
 
       doc.save(`Farm_Operations_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (e) {
@@ -480,42 +480,74 @@ export function Reports() {
             </CardContent>
           </Card>
 
+          {/* Delay Reasons Table */}
           <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-xl shadow-[#a4c692]/10 bg-white">
             <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0] rounded-t-[1.5rem]">
-              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Worker Assignments</CardTitle>
-              <CardDescription>Current labor distribution across farm batches.</CardDescription>
+              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><Clock className="h-5 w-5" /> Reported Delay Reasons</CardTitle>
+              <CardDescription>Reasons provided by workers for delayed tasks.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-[#f3faf2]">
                   <TableRow>
-                    <TableHead>Worker</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Assigned Batches</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Worker Name</TableHead>
+                    <TableHead>Assigned Batch</TableHead>
+                    <TableHead>Task</TableHead>
+                    <TableHead>Delay Reason</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.workerAssignments?.length > 0 ? data.workerAssignments.map((w: any) => (
-                    <TableRow key={w.id} className="hover:bg-[#eff7ed]">
-                      <TableCell className="font-medium text-[#3d5a36]">{w.name}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {w.roles.length > 0 ? w.roles.map((r: string) => <Badge key={r} variant="outline">{r}</Badge>) : <span className="text-gray-400 text-sm">Unassigned</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {w.batches.length > 0 ? w.batches.map((b: string) => <Badge key={b} className="bg-[#e4fde1] text-[#5d8044] hover:bg-[#d9ead6]">{b}</Badge>) : <span className="text-gray-400 text-sm">No batches</span>}
-                        </div>
-                      </TableCell>
+                  {data?.delayEvents?.length > 0 ? data.delayEvents.map((d: any, idx: number) => (
+                    <TableRow key={idx} className="hover:bg-[#eff7ed]">
+                      <TableCell className="text-gray-500 whitespace-nowrap">{fmtDate(d.timestamp)}</TableCell>
+                      <TableCell className="font-medium text-[#3d5a36]">{d.workerName || "Unknown"}</TableCell>
+                      <TableCell>{d.batchName || "-"}</TableCell>
+                      <TableCell>{d.taskName || "-"}</TableCell>
+                      <TableCell className="text-yellow-700 italic">{d.reason || "-"}</TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow><TableCell colSpan={3} className="text-center py-6 text-gray-500">No workers found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-6 text-gray-500">No delay reasons reported.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          {/* Help Requests Table */}
+          <Card className="border border-[#d9ead6] rounded-[1.5rem] shadow-xl shadow-[#a4c692]/10 bg-white">
+            <CardHeader className="bg-[#f5fbf3] p-6 border-b border-[#e5ede0] rounded-t-[1.5rem]">
+              <CardTitle className="text-[#3d5a36] flex items-center gap-2"><AlertCircle className="h-5 w-5 text-red-500" /> Help Requests</CardTitle>
+              <CardDescription>Specific assistance requested by workers.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-[#f3faf2]">
+                  <TableRow>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Worker Name</TableHead>
+                    <TableHead>Assigned Batch</TableHead>
+                    <TableHead>HELP Category</TableHead>
+                    <TableHead>HELP Subcategory</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.helpEvents?.length > 0 ? data.helpEvents.map((h: any, idx: number) => (
+                    <TableRow key={idx} className="hover:bg-[#eff7ed]">
+                      <TableCell className="text-gray-500 whitespace-nowrap">{fmtDate(h.timestamp)}</TableCell>
+                      <TableCell className="font-medium text-[#3d5a36]">{h.workerName || "Unknown"}</TableCell>
+                      <TableCell>{h.batchName || "-"}</TableCell>
+                      <TableCell><Badge className="bg-red-50 text-red-700 border-red-200">{h.category || "-"}</Badge></TableCell>
+                      <TableCell className="text-red-700">{h.subcategory || "-"}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={5} className="text-center py-6 text-gray-500">No help requests reported.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
         </TabsContent>
 
         {/* TAB 4: Alerts & Effectiveness */}

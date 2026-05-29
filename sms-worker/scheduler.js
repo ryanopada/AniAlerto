@@ -11,7 +11,7 @@ const REPLY_GUIDE =
 async function runScheduler() {
   try {
     // ── Build Manila-local "now" string for comparison ─────────────────────────
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
     const pad = n => String(n).padStart(2, '0');
     const nowDT = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ` +
                   `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -42,7 +42,10 @@ async function runScheduler() {
       const batchName  = tmpl.batch_name || 'All Batches';
       const rawMessage = tmpl.message;
       const daysAfter  = tmpl.days_after_planting ?? 0;
-      const msgPrefix  = rawMessage.slice(0, 40); // used for task_id-less dedup
+      
+      const cleanRawForPrefix = rawMessage.replace(/^\s*AniAlerto(?: \[[^\]]+\])?:\s*/i, '');
+      const prefixStr = (batchId && batchName !== 'All Batches') ? `AniAlerto [${batchName}]: ` : 'AniAlerto: ';
+      const msgPrefix = (prefixStr + cleanRawForPrefix).slice(0, 40); // used for task_id-less dedup
 
       // ── Get target workers via snapshot-first approach ──────────────────
       // Priority:
@@ -222,7 +225,7 @@ async function runScheduler() {
         }
 
         // Step 3 — no existing row: insert a fresh Queued entry
-        const finalMsg = rawMessage
+        const finalMsg = prefixStr + cleanRawForPrefix
           .replace('{batch_name}',  batchName)
           .replace('{crop_day}',    daysAfter)
           .replace('{worker_name}', w.name)

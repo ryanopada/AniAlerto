@@ -16,8 +16,8 @@ interface Worker {
   id: string;
   name: string;
   phone: string;
-  assignedBatch: string;   // display name shown in the table
-  batchId: string | null;  // numeric id sent to backend
+  assignedBatches: string; // display name shown in the table
+  batchIds: string[];      // numeric ids sent to backend
   status: "Active" | "Inactive";
 }
 
@@ -68,11 +68,16 @@ export function WorkerManagement() {
   const [sendLoading, setSendLoading] = useState(false);
   const [sendResult, setSendResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    phone: string;
+    batchIds: string[];
+    status: Worker["status"];
+  }>({
     name: "",
     phone: "",
-    batchId: "",   // stores the selected batch's numeric id
-    status: "Active" as Worker["status"],
+    batchIds: [],
+    status: "Active",
   });
 
   const WORKER_API_URL = "http://localhost/anialerto-backend/src/workers.php";
@@ -87,14 +92,14 @@ export function WorkerManagement() {
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch workers");
       const data = await response.json();
-      // Map API fields: batch_name → assignedBatch (display), batch_id → batchId
+      // Map API fields
       setWorkers(data.map((w: any) => ({
-        id:            w.id,
-        name:          w.name,
-        phone:         w.phone,
-        status:        w.status,
-        assignedBatch: w.batch_name || '-',
-        batchId:       w.batch_id   || null,
+        id:              w.id,
+        name:            w.name,
+        phone:           w.phone,
+        status:          w.status,
+        assignedBatches: w.assignedBatches || '-',
+        batchIds:        w.batchIds || [],
       })));
     } catch (error) {
       console.error("Error loading workers:", error);
@@ -126,8 +131,8 @@ export function WorkerManagement() {
     const method = editingWorker ? "PUT" : "POST";
 
     const payload = editingWorker
-      ? { id: editingWorker.id, name: formData.name, phone: formData.phone, status: formData.status, batchId: formData.batchId }
-      : { name: formData.name, phone: formData.phone, status: formData.status, batchId: formData.batchId };
+      ? { id: editingWorker.id, name: formData.name, phone: formData.phone, status: formData.status, batchIds: formData.batchIds }
+      : { name: formData.name, phone: formData.phone, status: formData.status, batchIds: formData.batchIds };
 
     try {
       const response = await fetch(WORKER_API_URL, {
@@ -186,10 +191,10 @@ export function WorkerManagement() {
   const handleOpenEdit = (worker: Worker) => {
     setEditingWorker(worker);
     setFormData({
-      name:    worker.name,
-      phone:   worker.phone,
-      batchId: worker.batchId || "",
-      status:  worker.status,
+      name:     worker.name,
+      phone:    worker.phone,
+      batchIds: worker.batchIds || [],
+      status:   worker.status,
     });
     fetchBatches();
     setIsDialogOpen(true);
@@ -277,7 +282,7 @@ export function WorkerManagement() {
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
             <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={() => { 
               setEditingWorker(null); 
-              setFormData({ name: "", phone: "", batchId: "", status: "Active" });
+              setFormData({ name: "", phone: "", batchIds: [], status: "Active" });
               fetchBatches(); 
               setIsDialogOpen(true); 
             }}>
@@ -426,7 +431,17 @@ export function WorkerManagement() {
                         </button>
                       </TableCell>
                       <TableCell className="text-[#556d4a]">{worker.phone}</TableCell>
-                      <TableCell><Badge variant="outline" className="border-[#d9ead6] text-[#556d4a]">{worker.assignedBatch}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {worker.assignedBatches === '-' ? (
+                            <Badge variant="outline" className="border-[#d9ead6] text-[#556d4a]">-</Badge>
+                          ) : (
+                            worker.assignedBatches.split(', ').map((b, i) => (
+                              <Badge key={i} variant="outline" className="border-[#d9ead6] text-[#556d4a]">{b}</Badge>
+                            ))
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge className={worker.status === "Active" ? "bg-[#e4fde1] text-[#5d8044]" : "bg-gray-100 text-gray-500"}>
                           {worker.status}
@@ -485,18 +500,26 @@ export function WorkerManagement() {
             </div>
             <div className="space-y-2">
               <Label>Batch Assignment</Label>
-              <select 
-                className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]"
-                value={formData.batchId} 
-                onChange={e => setFormData({...formData, batchId: e.target.value})}
-              >
-                <option value="">-- No batch assigned --</option>
+              <div className="max-h-[150px] overflow-y-auto space-y-1 border border-[#d9ead6] rounded-xl p-2 bg-white">
                 {batches.map((batch) => (
-                  <option key={batch.id} value={batch.id}>
-                    {batch.name}
-                  </option>
+                  <label key={batch.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#f3faf2] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.batchIds.includes(String(batch.id))}
+                      onChange={(e) => {
+                        const batchIdStr = String(batch.id);
+                        if (e.target.checked) {
+                          setFormData({ ...formData, batchIds: [...formData.batchIds, batchIdStr] });
+                        } else {
+                          setFormData({ ...formData, batchIds: formData.batchIds.filter(id => id !== batchIdStr) });
+                        }
+                      }}
+                      className="rounded border-[#d9ead6]"
+                    />
+                    <span className="text-sm text-[#3d5a36]">{batch.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>

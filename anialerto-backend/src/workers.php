@@ -27,8 +27,8 @@ switch($method) {
         // Join batch_workers + farm_batches to include each worker's current batch assignment.
         // GROUP BY w.id so that workers in multiple batches still return a single row.
         $sql = "SELECT w.id, w.name, w.phone, w.status,
-                       MIN(bw.batch_id)  AS batch_id,
-                       MIN(fb.name)      AS batch_name
+                       GROUP_CONCAT(bw.batch_id) AS batch_ids,
+                       GROUP_CONCAT(fb.name SEPARATOR ', ') AS batch_names
                 FROM workers w
                 LEFT JOIN batch_workers bw ON w.id  = bw.worker_id
                 LEFT JOIN farm_batches  fb ON fb.id = bw.batch_id";
@@ -44,13 +44,14 @@ switch($method) {
         $workers = [];
         if ($result) {
             while ($row = $result->fetch_assoc()) {
+                $batchIds = !empty($row['batch_ids']) ? explode(',', $row['batch_ids']) : [];
                 $workers[] = [
-                    'id'           => $row['id'],
-                    'name'         => $row['name'],
-                    'phone'        => $row['phone'],
-                    'status'       => $row['status'],
-                    'batch_id'     => $row['batch_id'],   // numeric id, null if unassigned
-                    'batch_name'   => $row['batch_name'] ?: '-', // display name
+                    'id'              => $row['id'],
+                    'name'            => $row['name'],
+                    'phone'           => $row['phone'],
+                    'status'          => $row['status'],
+                    'batchIds'        => $batchIds,
+                    'assignedBatches' => $row['batch_names'] ?: '-',
                 ];
             }
         }
@@ -64,11 +65,13 @@ switch($method) {
 
         if ($stmt->execute()) {
             $newId = $conn->insert_id;
-            // Assign to batch if one was selected
-            if (!empty($data['batchId'])) {
+            // Assign to batches if selected
+            if (!empty($data['batchIds']) && is_array($data['batchIds'])) {
                 $s2 = $conn->prepare("INSERT INTO batch_workers (worker_id, batch_id) VALUES (?, ?)");
-                $s2->bind_param("ii", $newId, $data['batchId']);
-                $s2->execute();
+                foreach ($data['batchIds'] as $bId) {
+                    $s2->bind_param("ii", $newId, $bId);
+                    $s2->execute();
+                }
                 $s2->close();
             }
             echo json_encode(["status" => "success", "id" => $newId]);
@@ -102,10 +105,12 @@ switch($method) {
         $del->execute();
         $del->close();
 
-        if (!empty($data['batchId'])) {
+        if (!empty($data['batchIds']) && is_array($data['batchIds'])) {
             $ins = $conn->prepare("INSERT INTO batch_workers (worker_id, batch_id) VALUES (?, ?)");
-            $ins->bind_param("ii", $data['id'], $data['batchId']);
-            $ins->execute();
+            foreach ($data['batchIds'] as $bId) {
+                $ins->bind_param("ii", $data['id'], $bId);
+                $ins->execute();
+            }
             $ins->close();
         }
 

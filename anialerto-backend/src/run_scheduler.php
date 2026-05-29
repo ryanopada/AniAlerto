@@ -7,6 +7,7 @@ header('Content-Type: application/json');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 require_once 'Database.php';
+date_default_timezone_set('Asia/Manila');
 $database = new Database();
 $db = $database->getConnection();
 
@@ -45,7 +46,10 @@ try {
         $batchId    = $template['batch_id'];
         $batchName  = $template['batch_name'] ?? 'All Batches';
         $daysAfter  = $template['days_after_planting'] ?? 0;
-        $msgPrefix  = substr($rawMessage, 0, 40);
+        
+        $cleanRawForPrefix = preg_replace('/^\s*AniAlerto(?: \[[^\]]+\])?:\s*/i', '', $rawMessage);
+        $prefix = ($batchId && $batchName !== 'All Batches') ? "AniAlerto [{$batchName}]: " : "AniAlerto: ";
+        $msgPrefix  = substr($prefix . $cleanRawForPrefix, 0, 40);
 
         // ── Get target workers ──────────────────────────────────────────────────
         if ($batchId) {
@@ -154,10 +158,10 @@ try {
             }
 
             // ── Step 3: No existing row — insert a fresh Queued entry ────────────
-            $finalMessage = str_replace(
+            $finalMessage = $prefix . str_replace(
                 ['{batch_name}', '{crop_day}', '{worker_name}'],
                 [$batchName, $daysAfter, $worker['name']],
-                $rawMessage
+                $cleanRawForPrefix
             ) . $REPLY_GUIDE;
 
             $qStmt = $db->prepare("

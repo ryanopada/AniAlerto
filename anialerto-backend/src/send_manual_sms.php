@@ -73,6 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $stmt->execute(['bid' => $batchId]);
             $workers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Fetch batch name for prefix
+            $bStmt = $db->prepare("SELECT name FROM farm_batches WHERE id = :bid");
+            $bStmt->execute(['bid' => $batchId]);
+            $batchRow = $bStmt->fetch(PDO::FETCH_ASSOC);
+            $batchName = $batchRow ? $batchRow['name'] : null;
         } elseif ($sendTo === 'individual' && !empty($workerIds)) {
             $placeholders = implode(',', array_fill(0, count($workerIds), '?'));
             $stmt = $db->prepare("SELECT id, name, phone FROM workers WHERE id IN ($placeholders) AND status = 'Active'");
@@ -89,7 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $details = [];
 
         foreach ($workers as $w) {
-            $personalMsg = str_replace('{worker_name}', $w['name'], $message);
+            $cleanMessage = preg_replace('/^\s*AniAlerto(?: \[[^\]]+\])?:\s*/i', '', $message);
+            $prefix = (isset($batchName) && $batchName) ? "AniAlerto [{$batchName}]: " : "AniAlerto: ";
+            $personalMsg = $prefix . str_replace('{worker_name}', $w['name'], $cleanMessage);
             // Append bilingual reply guide so workers always see valid response options
             $personalMsg .= "\n\nReply only: DONE, DELAY, HELP, PEST\nSumagot lamang ng: DONE, DELAY, HELP, PEST";
 
