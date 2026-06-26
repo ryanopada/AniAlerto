@@ -23,7 +23,7 @@ try {
     $offset     = ($page - 1) * $perPage;
 
     // ── Build WHERE conditions ─────────────────────────────────────────────────
-    $where  = "sl.direction = 'Outbound' AND sl.sent_at IS NOT NULL";
+    $where  = "sl.direction = 'Outbound' AND sl.sent_at IS NOT NULL AND sl.message NOT LIKE 'Reminder!%'";
     $params = [];
 
     // Date filter (server-controlled values — safe to inline)

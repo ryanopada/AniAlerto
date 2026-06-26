@@ -18,7 +18,7 @@ function AnimatedCount({ value }: { value: number }) {
 
   useEffect(() => {
     const start = display;
-    const end   = value;
+    const end = value;
     if (start === end) return;
     const duration = 600; // ms
     const startTime = performance.now();
@@ -32,7 +32,7 @@ function AnimatedCount({ value }: { value: number }) {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return <>{display}</>;
@@ -56,30 +56,35 @@ interface SMSLog {
 type DateFilter = "today" | "custom";
 
 const DATE_FILTER_OPTIONS: { label: string; value: DateFilter }[] = [
-  { label: "Today",    value: "today" },
-  { label: "Custom",   value: "custom" },
+  { label: "Today", value: "today" },
+  { label: "Custom", value: "custom" },
 ];
 
-const PER_PAGE  = 20;
-const API_URL   = "http://localhost/anialerto-backend/src/get_sms_logs.php";
-const STATS_URL = "http://localhost/anialerto-backend/src/get_sms_stats.php";
+const PER_PAGE = 20;
+const API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/get_sms_logs.php";
+const STATS_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/get_sms_stats.php";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function formatDateTime(dt: string | null): string {
   if (!dt) return "—";
   const d = new Date(dt);
   if (isNaN(d.getTime())) return dt;
-  return d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
-    + "  " + d.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })
+    + "  " + d.toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" });
 }
 
-function getResponseMeta(rt: string | null) {
+function getResponseMeta(rt: string | null, receivedAt?: string | null) {
   const t = rt?.toUpperCase().trim();
-  if (t === "DONE")  return { label: "DONE",  icon: CheckCircle,   cls: "bg-emerald-100 text-emerald-700 border-emerald-200", row: "bg-emerald-50/60" };
-  if (t === "DELAY") return { label: "DELAY", icon: Clock,         cls: "bg-amber-100 text-amber-700 border-amber-200",       row: "bg-amber-50/60" };
-  if (t === "HELP")  return { label: "HELP",  icon: AlertCircle,   cls: "bg-red-100 text-red-700 border-red-200",             row: "bg-red-50/60" };
-  if (t === "PEST")  return { label: "PEST",  icon: AlertTriangle, cls: "bg-orange-100 text-orange-700 border-orange-200",    row: "bg-orange-50/60" };
-  return { label: "—",   icon: MessageSquare, cls: "bg-gray-100 text-gray-500 border-gray-200",             row: "" };
+  if (t === "DONE") {
+    if (receivedAt && new Date(receivedAt).getHours() >= 17) {
+      return { label: "LATE FINISH", icon: CheckCircle, cls: "bg-orange-100 text-orange-700 border-orange-200", row: "bg-orange-50/60" };
+    }
+    return { label: "DONE", icon: CheckCircle, cls: "bg-emerald-100 text-emerald-700 border-emerald-200", row: "bg-emerald-50/60" };
+  }
+  if (t === "DELAY") return { label: "DELAY", icon: Clock, cls: "bg-amber-100 text-amber-700 border-amber-200", row: "bg-amber-50/60" };
+  if (t === "HELP") return { label: "HELP", icon: AlertCircle, cls: "bg-red-100 text-red-700 border-red-200", row: "bg-red-50/60" };
+  if (t === "PEST") return { label: "PEST", icon: AlertTriangle, cls: "bg-orange-100 text-orange-700 border-orange-200", row: "bg-orange-50/60" };
+  return { label: "—", icon: MessageSquare, cls: "bg-gray-100 text-gray-500 border-gray-200", row: "" };
 }
 
 // ── Skeleton Row ───────────────────────────────────────────────────────────────
@@ -95,19 +100,19 @@ function SkeletonRow() {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export function SMSMonitoring() {
-  const [logs,        setLogs]        = useState<SMSLog[]>([]);
-  const [total,       setTotal]       = useState(0);
-  const [totalPages,  setTotalPages]  = useState(1);
-  const [page,        setPage]        = useState(1);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
-  const [search,      setSearch]      = useState("");
+  const [logs, setLogs] = useState<SMSLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [dateFilter,  setDateFilter]  = useState<DateFilter>("today");
-  const [dateFrom,    setDateFrom]    = useState("");
-  const [dateTo,      setDateTo]      = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   // ── Global stats from API (accurate across ALL pages, not just the current one)
-  const [summary,     setSummary]     = useState({ total: 0, done: 0, delay: 0, help: 0, pest: 0, pending: 0 });
+  const [summary, setSummary] = useState({ total: 0, done: 0, late_finish: 0, delay: 0, help: 0, pest: 0, pending: 0 });
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
 
@@ -124,21 +129,26 @@ export function SMSMonitoring() {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const params = new URLSearchParams({
-        page:        String(page),
-        per_page:    String(PER_PAGE),
+        page: String(page),
+        per_page: String(PER_PAGE),
         date_filter: dateFilter,
       });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (dateFilter === "custom") {
         if (dateFrom) params.set("date_from", dateFrom);
-        if (dateTo)   params.set("date_to",   dateTo);
+        if (dateTo) params.set("date_to", dateTo);
       }
-      const res  = await fetch(`${API_URL}?${params}`);
+      const res = await fetch(`${API_URL}?${params}`);
+      
+      // Get true time from server to bypass broken laptop clocks
+      const serverDateStr = res.headers.get("date");
+      const trueDate = serverDateStr ? new Date(serverDateStr) : new Date();
+      
       const json = await res.json();
-      setLogs(json.data        ?? []);
-      setTotal(json.total      ?? 0);
+      setLogs(json.data ?? []);
+      setTotal(json.total ?? 0);
       setTotalPages(json.total_pages ?? 1);
-      setLastUpdated(new Date());
+      setLastUpdated(trueDate);
     } catch (err) {
       console.error("Error fetching SMS logs:", err);
     } finally {
@@ -158,12 +168,12 @@ export function SMSMonitoring() {
   const fetchStats = useCallback(async () => {
     try {
       const p = new URLSearchParams({ date_filter: dateFilter });
-      if (debouncedSearch)              p.set('search',    debouncedSearch);
+      if (debouncedSearch) p.set('search', debouncedSearch);
       if (dateFilter === 'custom') {
         if (dateFrom) p.set('date_from', dateFrom);
-        if (dateTo)   p.set('date_to',   dateTo);
+        if (dateTo) p.set('date_to', dateTo);
       }
-      const res  = await fetch(`${STATS_URL}?${p}`);
+      const res = await fetch(`${STATS_URL}?${p}`);
       const json = await res.json();
       if (!json.error) {
         setSummary(json);
@@ -208,21 +218,20 @@ export function SMSMonitoring() {
 
       {/* ── Stats Cards ── */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
       >
         {([
-          { label: "Total",   value: summary.total,   icon: MessageSquare, color: "text-[#3d5a36]",    bg: "from-white to-[#f8fdf3]",  border: "border-[#c8dfc4]", dot: "bg-[#5d8044]"   },
-          { label: "Done",    value: summary.done,    icon: CheckCircle,   color: "text-emerald-600", bg: "from-white to-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
-          { label: "Delay",   value: summary.delay,   icon: Clock,         color: "text-amber-600",   bg: "from-white to-amber-50",   border: "border-amber-200",   dot: "bg-amber-500"   },
-          { label: "Help",    value: summary.help,    icon: AlertCircle,   color: "text-red-600",     bg: "from-white to-red-50",     border: "border-red-200",     dot: "bg-red-500"     },
-          { label: "Pending", value: summary.pending, icon: Clock,         color: "text-gray-500",    bg: "from-white to-gray-50",    border: "border-gray-200",    dot: "bg-gray-400"    },
+          { label: "Total", value: summary.total, icon: MessageSquare, color: "text-[#3d5a36]", bg: "from-white to-[#f8fdf3]", border: "border-[#c8dfc4]", dot: "bg-[#5d8044]" },
+          { label: "Done", value: summary.done, icon: CheckCircle, color: "text-emerald-600", bg: "from-white to-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
+          { label: "Late Finish", value: summary.late_finish, icon: Clock, color: "text-orange-600", bg: "from-white to-orange-50", border: "border-orange-200", dot: "bg-orange-500" },
+          { label: "Delay", value: summary.delay, icon: Clock, color: "text-amber-600", bg: "from-white to-amber-50", border: "border-amber-200", dot: "bg-amber-500" },
+          { label: "Help", value: summary.help, icon: AlertCircle, color: "text-red-600", bg: "from-white to-red-50", border: "border-red-200", dot: "bg-red-500" },
+          { label: "Pending", value: summary.pending, icon: Clock, color: "text-gray-500", bg: "from-white to-gray-50", border: "border-gray-200", dot: "bg-gray-400" },
         ] as const).map((s, idx) => {
           const Icon = s.icon;
-          // On mobile (2-col grid), the 5th card (Pending) spans 2 cols to center it
-          const spanClass = idx === 4 ? "col-span-2 sm:col-span-1" : "";
           return (
-            <motion.div key={s.label} className={spanClass} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 320, damping: 20 }}>
+            <motion.div key={s.label} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 320, damping: 20 }}>
               <Card className={`rounded-2xl border shadow-lg bg-gradient-to-br ${s.bg} ${s.border} h-full`}>
                 <CardContent className="pt-4 pb-4 px-4">
                   <div className="flex items-center justify-between mb-2">
@@ -247,7 +256,7 @@ export function SMSMonitoring() {
         <Wifi className={`h-3.5 w-3.5 ${refreshing ? 'text-[#5d8044] animate-pulse' : 'text-[#7b8f6f]'}`} />
         <span className="text-xs text-[#7b8f6f]">
           {refreshing ? 'Updating...' : lastUpdated
-            ? `Updated ${lastUpdated.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+            ? `Updated ${lastUpdated.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
             : 'Loading...'}
           {' · '}
           <span className="font-semibold text-[#556d4a]">
@@ -270,11 +279,10 @@ export function SMSMonitoring() {
               <button
                 key={o.value}
                 onClick={() => setDateFilter(o.value)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${
-                  dateFilter === o.value
-                    ? "bg-[#5d8044] text-white border-[#5d8044] shadow-sm"
-                    : "bg-white text-[#556d4a] border-[#d9ead6] hover:border-[#5d8044] hover:text-[#3d5a36]"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${dateFilter === o.value
+                  ? "bg-[#5d8044] text-white border-[#5d8044] shadow-sm"
+                  : "bg-white text-[#556d4a] border-[#d9ead6] hover:border-[#5d8044] hover:text-[#3d5a36]"
+                  }`}
               >
                 <Calendar className="h-3 w-3" />
                 {o.label}
@@ -328,7 +336,7 @@ export function SMSMonitoring() {
             <div>
               <CardTitle className="text-[#3d5a36] text-base">SMS Logs</CardTitle>
               <CardDescription className="text-[#556d4a] text-xs mt-0.5">
-                {loading ? "Loading…" : `Showing ${((page-1)*PER_PAGE)+1}–${Math.min(page*PER_PAGE, total)} of ${total} messages`}
+                {loading ? "Loading…" : `Showing ${((page - 1) * PER_PAGE) + 1}–${Math.min(page * PER_PAGE, total)} of ${total} messages`}
               </CardDescription>
             </div>
           </CardHeader>
@@ -353,8 +361,8 @@ export function SMSMonitoring() {
 
                   {/* Data rows */}
                   {!loading && logs.map((log, i) => {
-                    const meta     = getResponseMeta(log.response_text);
-                    const Icon     = meta.icon;
+                    const meta = getResponseMeta(log.response_text, log.received_at);
+                    const Icon = meta.icon;
                     const isReplied = !!log.response_text;
                     return (
                       <motion.tr

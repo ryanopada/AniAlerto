@@ -11,68 +11,70 @@ const HELP_MENU =
   '3 - Pesticide Spray\n' +
   '4 - Harvest\n' +
   '5 - Field Preparation\n' +
-  '6 - Equipment and Safety\n\n' +
+  '6 - Equipment and Safety\n' +
+  '7 - Other (Wala sa pagpipilian)\n\n' +
   'Anong tulong ang kailangan mo? Sumagot gamit ang numero:\n' +
   '1 - Patubig\n' +
   '2 - Abono\n' +
   '3 - Pesticide Spray\n' +
   '4 - Pag-aani\n' +
   '5 - Paghahanda ng Lupa\n' +
-  '6 - Kagamitan';
+  '6 - Kagamitan\n' +
+  '7 - Wala sa pagpipilian';
+
+const MORE_HELP_MENU =
+  'AniAlerto: Need any other help? Reply with the number:\n' +
+  '1 - Yes\n' +
+  '2 - No\n\n' +
+  'Kailangan mo pa ba ng ibang tulong? Sumagot gamit ang numero:\n' +
+  '1 - Oo\n' +
+  '2 - Hindi';
 
 const IRRIGATION_MENU =
   'AniAlerto: What exactly do you need help in Irrigation? Reply with the number:\n' +
   '1 - Water Source\n' +
   '2 - Coverage\n' +
-  '3 - Scheduling\n' +
-  '4 - Problems\n\n' +
+  '3 - Scheduling\n\n' +
   'Anong tulong ang kailangan mo sa Patubig? Sumagot gamit ang numero:\n' +
   '1 - Pinagmumulan ng tubig\n' +
   '2 - Saklaw ng tubig\n' +
-  '3 - Iskedyul\n' +
-  '4 - Problema';
+  '3 - Iskedyul';
 
 const FERTILIZER_MENU =
   'AniAlerto: What exactly do you need help in Fertilizer / Abono? Reply with the number:\n' +
   '1 - Type\n' +
   '2 - Amount\n' +
   '3 - Application Method\n' +
-  '4 - Timing\n' +
-  '5 - Problems\n\n' +
+  '4 - Timing\n\n' +
   'Anong tulong ang kailangan mo sa Abono? Sumagot gamit ang numero:\n' +
   '1 - Uri\n' +
   '2 - Dami\n' +
   '3 - Paraan ng Pag-aaplay\n' +
-  '4 - Oras ng Pag-aaplay\n' +
-  '5 - Problema';
+  '4 - Oras ng Pag-aaplay';
 
 const PESTICIDE_MENU =
   'AniAlerto: What exactly do you need help in Pesticide Spray / Pest Control? Reply with the number:\n' +
   '1 - Pest Identification\n' +
   '2 - Spraying Method\n' +
   '3 - Safety Precautions\n' +
-  '4 - Timing\n' +
-  '5 - Problems\n\n' +
+  '4 - Timing\n\n' +
   'Anong tulong ang kailangan mo sa Pesticide Spray / Pest Control? Sumagot gamit ang numero:\n' +
   '1 - Pagkilala sa peste\n' +
   '2 - Paraan ng Pag-spray\n' +
   '3 - Pag-iingat at Kaligtasan\n' +
-  '4 - Oras ng Pag-spray\n' +
-  '5 - Problema';
+  '4 - Oras ng Pag-spray';
 
 const HARVEST_MENU =
   'AniAlerto: What exactly do you need help in Harvest / Pag-aani? Reply with the number:\n' +
   '1 - Maturity Check\n' +
   '2 - Tools\n' +
   '3 - Collection\n' +
-  '4 - Storage / Drying\n' +
-  '5 - Problems\n\n' +
+  '4 - Storage / Drying\n\n' +
   'Anong tulong ang kailangan mo sa Pag-aani? Sumagot gamit ang numero:\n' +
   '1 - Pag-check ng pagkahinog\n' +
   '2 - Mga gamit\n' +
   '3 - Pag-aani\n' +
-  '4 - Pag-iimbak / Pagpatuyo\n' +
-  '5 - Problema';
+  '4 - Pag-iimbak / Pagpatuyo';
 
 const FIELD_PREP_MENU =
   'AniAlerto: What exactly do you need help in Field Preparation & Maintenance? Reply with the number:\n' +
@@ -135,21 +137,7 @@ const IRRIGATION_TYPES = {
       '1.3.2 I-adjust ang iskedyul batay sa ulan o tagtuyot\n' +
       '1.3.3 I-record ang petsa at oras ng patubig para sa monitoring\n' +
       '1.3.4 Ipaalam sa Admin kung kailangan baguhin ang iskedyul',
-  },
-  '4': {
-    label: 'Irrigation - Problems',
-    msg:
-      'AniAlerto: Irrigation Help (Problems):\n' +
-      '1.4.1 Identify leaks in hoses or pipes\n' +
-      '1.4.2 Clear any blockages in tubing or valves\n' +
-      '1.4.3 Check pump and water source functionality\n' +
-      '1.4.4 Contact Admin if the issue persists or is unresolved\n\n' +
-      'Tulong sa Patubig (Problema):\n' +
-      '1.4.1 Tukuyin ang mga tulo sa hoses o tubo\n' +
-      '1.4.2 Linisin ang anumang bara sa tubo o balbula\n' +
-      '1.4.3 Suriin ang pump at pinagmumulan ng tubig\n' +
-      '1.4.4 Makipag-ugnayan sa Admin kung hindi maayos ang problema',
-  },
+  }
 };
 
 const FERTILIZER_TYPES = {
@@ -196,19 +184,7 @@ const FERTILIZER_TYPES = {
       'Tulong sa Abono (Oras ng Pag-aaplay):\n' +
       '2.4.1 Abono 1 -> 15 araw matapos itanim\n' +
       '2.4.2 Abono 2 -> 40 araw matapos itanim',
-  },
-  '5': {
-    label: 'Fertilizer - Problems',
-    msg:
-      'AniAlerto: Fertilizer Help (Problems):\n' +
-      '2.5.1 Missing materials\n' +
-      '2.5.2 Uneven application\n' +
-      '2.5.3 Contact Admin\n\n' +
-      'Tulong sa Abono (Problema):\n' +
-      '2.5.1 Kulang ang materyales\n' +
-      '2.5.2 Hindi pantay ang pag-aaplay\n' +
-      '2.5.3 Makipag-ugnayan sa Admin',
-  },
+  }
 };
 
 const PESTICIDE_TYPES = {
@@ -253,19 +229,7 @@ const PESTICIDE_TYPES = {
       'Tulong sa Pesticide Spray / Pest Control - Oras ng Pag-spray:\n' +
       '3.4.1 Pang-uod -> 15 araw matapos itanim\n' +
       '3.4.2 Pang-damo -> 20 araw matapos itanim',
-  },
-  '5': {
-    label: 'Pesticide - Problems',
-    msg:
-      'AniAlerto: Pesticide Help - Problems:\n' +
-      '3.5.1 Spray not reaching plants\n' +
-      '3.5.2 Missing PPE\n' +
-      '3.5.3 Contact Admin\n\n' +
-      'Tulong sa Pesticide Spray / Pest Control - Problema:\n' +
-      '3.5.1 Hindi abot ng spray ang halaman\n' +
-      '3.5.2 Walang sapat na PPE\n' +
-      '3.5.3 Makipag-ugnayan sa Admin',
-  },
+  }
 };
 
 const HARVEST_TYPES = {
@@ -310,19 +274,7 @@ const HARVEST_TYPES = {
       'Tulong sa Pag-aani - Pag-iimbak / Pagpatuyo:\n' +
       '4.4.1 Patuyuin sa araw\n' +
       '4.4.2 Gumamit ng mechanical dryer',
-  },
-  '5': {
-    label: 'Harvest - Problems',
-    msg:
-      'AniAlerto: Harvest Help - Problems:\n' +
-      '4.5.1 Damaged kernels\n' +
-      '4.5.2 Missing tools\n' +
-      '4.5.3 Contact Admin\n\n' +
-      'Tulong sa Pag-aani - Problema:\n' +
-      '4.5.1 Sira o natutulis na butil\n' +
-      '4.5.2 Nawawalang kagamitan\n' +
-      '4.5.3 Makipag-ugnayan sa Admin',
-  },
+  }
 };
 
 const FIELD_PREP_TYPES = {
@@ -396,8 +348,8 @@ const EQUIPMENT_TYPES = {
 };
 
 const HELP_INVALID_REPLY =
-  'Invalid reply. Please reply with 1, 2, 3, 4, 5, or 6 according to the help menu.\n\n' +
-  'Hindi wastong sagot. Mangyaring sumagot ng 1, 2, 3, 4, 5, o 6 ayon sa help menu.';
+  'Invalid reply. Please reply with 1, 2, 3, 4, 5, 6, or 7 according to the help menu.\n\n' +
+  'Hindi wastong sagot. Mangyaring sumagot ng 1, 2, 3, 4, 5, 6, o 7 ayon sa help menu.';
 
 // Auto-reply messages (English + blank line + Tagalog)
 const AUTO_REPLIES = {
@@ -421,7 +373,7 @@ function setDB(connection) { db = connection; }
 // ─── Phone Utilities ──────────────────────────────────────────────────────────
 
 function phoneDigits(raw) { return String(raw || '').replace(/\D/g, ''); }
-function phoneKey(raw)    { return phoneDigits(raw).slice(-10); }
+function phoneKey(raw) { return phoneDigits(raw).slice(-10); }
 
 function phoneVariants(raw) {
   const key = phoneKey(raw);
@@ -445,12 +397,12 @@ function isShortCode(phone) {
 
 // ─── DB Helpers ───────────────────────────────────────────────────────────────
 
-// Queue an auto-reply SMS via sms_queue (skip_log=1 → sender will NOT create an sms_logs row)
+// Queue an auto-reply SMS via sms_queue (skip_log=0 → sender WILL create an sms_logs row)
 async function queueAutoReply(phone, message, workerId = null) {
   try {
     await db.execute(
       `INSERT INTO sms_queue (task_id, worker_id, phone, message, status, skip_log, created_at)
-       VALUES (NULL, ?, ?, ?, 'Queued', 1, NOW())`,
+       VALUES (NULL, ?, ?, ?, 'Queued', 0, NOW())`,
       [workerId || null, phone, message]
     );
     console.log(`[Receiver] 📤 Auto-reply queued → ${phone}: "${message.substring(0, 60)}"`);
@@ -521,7 +473,7 @@ async function clearDelaySession(normalizedPhone, workerId) {
        WHERE ${phoneMatchExpr('phone')} = ? OR phone = ? OR worker_id = ?`,
       [key, normalizedPhone, workerId || 0]
     );
-  } catch (err) {}
+  } catch (err) { }
 }
 
 // Create an admin-facing alert record
@@ -571,6 +523,36 @@ async function getTaskContext(workerId) {
 // ─── Command Handlers ─────────────────────────────────────────────────────────
 
 async function handleDone(workerId, workerName, phone) {
+  // First, check if there's an identified pest alert awaiting DONE
+  const [openPest] = await db.execute(
+    `SELECT id FROM pest_alerts WHERE worker_id = ? AND status = 'Identified' ORDER BY reported_at DESC LIMIT 1`,
+    [workerId]
+  );
+
+  if (openPest.length > 0) {
+    const pestAlertId = openPest[0].id;
+    await db.execute(`UPDATE pest_alerts SET status = 'Completed', completed_at = NOW() WHERE id = ?`, [pestAlertId]);
+    console.log(`[Receiver] ✅ Pest incident ${pestAlertId} → Completed by ${workerName}`);
+
+    // Notify admin
+    const adminPhone = await getAdminPhone();
+    if (adminPhone) {
+      await queueAutoReply(
+        adminPhone,
+        `AniAlerto: ${workerName} completed the pest management protocol.`,
+        null
+      );
+    }
+    await queueAutoReply(phone, AUTO_REPLIES.DONE, workerId);
+
+    // Update alert in dashboard
+    try {
+      await db.execute(`UPDATE alerts SET done_reply = ?, message = CONCAT(message, ' (Completed)') WHERE type='PEST' AND worker_id=? AND is_read=0`, [workerName, workerId]);
+    } catch (e) { }
+
+    return;
+  }
+
   const task = await getTaskContext(workerId);
   if (task) {
     await db.execute(
@@ -585,15 +567,15 @@ async function handleDone(workerId, workerName, phone) {
   }
 
   // ★ Update open DELAY alerts: set done_reply + update message (admin must manually dismiss)
-  const category  = task?.category  || 'General';
+  const category = task?.category || 'General';
   const batchName = task?.batch_name || '';
-  const taskId    = task?.id         || null;
+  const taskId = task?.id || null;
   const doneEN = `Worker ${workerName} replied DONE for ${category} task` +
-                 (batchName ? ` in ${batchName}` : '') +
-                 (taskId    ? ` (Task #${taskId})` : '') + '.';
+    (batchName ? ` in ${batchName}` : '') +
+    (taskId ? ` (Task #${taskId})` : '') + '.';
   const doneTL = `Sumagot ng DONE si ${workerName} para sa gawain ng ${category}` +
-                 (batchName ? ` sa ${batchName}` : '') +
-                 (taskId    ? ` (Gawain #${taskId})` : '') + '.';
+    (batchName ? ` sa ${batchName}` : '') +
+    (taskId ? ` (Gawain #${taskId})` : '') + '.';
   const doneMsg = doneEN + '\n\n' + doneTL;
   try {
     if (taskId) {
@@ -647,18 +629,18 @@ async function handleDelay(workerId, workerName, phone) {
   // Instead of auto-reminders, we immediately ask the worker for the reason for delay.
   const reasonPromptEN = `AniAlerto: Reason for delay?`;
   const reasonPromptTL = `AniAlerto: Dahilan ng pagka-delay?`;
-  
+
   await createDelaySession(phone, workerId);
   await queueAutoReply(phone, reasonPromptEN, workerId);
   await queueAutoReply(phone, reasonPromptTL, workerId);
 
   // ── Always create dashboard checklist alert ─────────────
   const batchInfo = task?.batch_name ? ` in ${task.batch_name}` : '';
-  const taskInfo  = task
+  const taskInfo = task
     ? ` on ${task.category || 'farming'} task${batchInfo}. Task #${task.id}.`
     : ' (no active task).';
-  const alertMsg  = `${workerName} (${phone}) reported DELAY${taskInfo}` +
-                    `\n\nNag-ulat ng DELAY si ${workerName} (${phone})${batchInfo}.`;
+  const alertMsg = `${workerName} (${phone}) reported DELAY${taskInfo}` +
+    `\n\nNag-ulat ng DELAY si ${workerName} (${phone})${batchInfo}.`;
   await createAlert('DELAY', workerId, workerName, phone, task?.id || null, alertMsg);
 }
 
@@ -692,7 +674,7 @@ async function handleHelp(workerId, workerName, phone) {
 
   // Notify admin that HELP was triggered
   const batchInfo = task && task.batch_name ? ` in ${task.batch_name}` : '';
-  const alertMsg  = `${workerName} (${phone}) requested HELP${batchInfo}. Menu sent — awaiting topic selection.`;
+  const alertMsg = `${workerName} (${phone}) requested HELP${batchInfo}. Menu sent — awaiting topic selection.`;
   await createAlert('HELP', workerId, workerName, phone, task ? task.id : null, alertMsg);
 
   console.log(`[Receiver] 🆘 HELP menu sent to ${workerName} (${phone})`);
@@ -703,6 +685,21 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
   const step = session.step || 'MAIN_MENU';
 
   if (step === 'MAIN_MENU') {
+    let topicLabel = '';
+    if (number === '1') topicLabel = 'Irrigation';
+    else if (number === '2') topicLabel = 'Fertilizer';
+    else if (number === '3') topicLabel = 'Pesticide Spray';
+    else if (number === '4') topicLabel = 'Harvest';
+    else if (number === '5') topicLabel = 'Field Preparation';
+    else if (number === '6') topicLabel = 'Equipment and Safety';
+    else if (number === '7') topicLabel = 'Other';
+
+    if (topicLabel) {
+      await db.execute(
+        `UPDATE sms_logs SET response_text = ?, received_at = NOW() WHERE direction = 'Outbound' AND response_text LIKE 'HELP%' AND (worker_id = ? OR phone = ? OR ${phoneMatchExpr('phone')} = ?) ORDER BY created_at DESC LIMIT 1`,
+        [`HELP: ${topicLabel}`, workerId, phone, phoneKey(phone)]
+      );
+    }
     if (number === '1') {
       await db.execute(`UPDATE help_sessions SET step='IRRIGATION_MENU', created_at=NOW() WHERE id=?`, [session.id]);
       await queueAutoReply(phone, IRRIGATION_MENU, workerId);
@@ -733,6 +730,17 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
       await queueAutoReply(phone, EQUIPMENT_MENU, workerId);
       console.log(`[Receiver] 🆘 Help multi-level: ${workerName} advanced to EQUIPMENT_MENU`);
       return;
+    } else if (number === '7') {
+      // FIX: Added routing for Option 7 (Other)
+      await db.execute(`UPDATE help_sessions SET step='OTHER_HELP_DESC', created_at=NOW() WHERE id=?`, [session.id]);
+
+      const otherPrompt =
+        'AniAlerto: Please reply with a short description of the help you need.\n\n' +
+        'Mangyaring i-reply ang maikling paglalarawan ng tulong na kailangan mo.';
+
+      await queueAutoReply(phone, otherPrompt, workerId);
+      console.log(`[Receiver] 🆘 Help multi-level: ${workerName} advanced to OTHER_HELP_DESC`);
+      return;
     } else {
       await queueAutoReply(phone, HELP_INVALID_REPLY, workerId);
       return;
@@ -740,7 +748,7 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
   } else if (step === 'IRRIGATION_MENU') {
     const helpType = IRRIGATION_TYPES[number];
     if (!helpType) {
-      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, or 4 for Irrigation help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, o 4 para sa Patubig.', workerId);
+      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, or 3 for Irrigation help.\n\nHindi wastong sagot. Sumagot ng 1, 2, o 3 para sa Patubig.', workerId);
       return;
     }
     await queueAutoReply(phone, helpType.msg, workerId);
@@ -748,7 +756,7 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
   } else if (step === 'FERTILIZER_MENU') {
     const helpType = FERTILIZER_TYPES[number];
     if (!helpType) {
-      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, 4, or 5 for Fertilizer help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, 4, o 5 para sa Abono.', workerId);
+      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, or 4 for Fertilizer help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, o 4 para sa Abono.', workerId);
       return;
     }
     await queueAutoReply(phone, helpType.msg, workerId);
@@ -756,7 +764,7 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
   } else if (step === 'PESTICIDE_MENU') {
     const helpType = PESTICIDE_TYPES[number];
     if (!helpType) {
-      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, 4, or 5 for Pesticide help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, 4, o 5 para sa Pesticide.', workerId);
+      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, or 4 for Pesticide help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, o 4 para sa Pesticide.', workerId);
       return;
     }
     await queueAutoReply(phone, helpType.msg, workerId);
@@ -764,7 +772,7 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
   } else if (step === 'HARVEST_MENU') {
     const helpType = HARVEST_TYPES[number];
     if (!helpType) {
-      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, 4, or 5 for Harvest help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, 4, o 5 para sa Pag-aani.', workerId);
+      await queueAutoReply(phone, 'Invalid reply. Please reply with 1, 2, 3, or 4 for Harvest help.\n\nHindi wastong sagot. Sumagot ng 1, 2, 3, o 4 para sa Pag-aani.', workerId);
       return;
     }
     await queueAutoReply(phone, helpType.msg, workerId);
@@ -797,7 +805,7 @@ async function finishHelpReply(helpType, workerId, workerName, phone) {
         SET response_text = ?,
             received_at   = NOW()
       WHERE direction     = 'Outbound'
-        AND response_text = 'HELP'
+        AND response_text LIKE 'HELP%'
         AND (
           worker_id = ?
           OR phone  = ?
@@ -822,16 +830,19 @@ async function finishHelpReply(helpType, workerId, workerName, phone) {
   }
 
   // Clear the help session
-  await clearHelpSession(phone, workerId);
+  // Transition to MORE_HELP_PROMPT
+  await db.execute(
+    `UPDATE help_sessions SET step='MORE_HELP_PROMPT', created_at=NOW() WHERE (phone=? OR ${phoneMatchExpr('phone')} = ?) AND worker_id=? ORDER BY created_at DESC LIMIT 1`,
+    [phone, phoneKey(phone), workerId]
+  );
+  await queueAutoReply(phone, MORE_HELP_MENU, workerId);
 
-  console.log(`[Receiver] 🆘 Help sub-reply processed: ${workerName} → ${helpType.label}`);
+  console.log(`[Receiver] 🆘 Help sub-reply processed: ${workerName} → ${helpType.label} (Prompting MORE_HELP)`);
 }
 
 async function handlePest(workerId, workerName, phone) {
   const task = await getTaskContext(workerId);
 
-  // ── Dedup guard: skip if this worker already reported PEST in the last 5 min ──
-  // Prevents duplicate guidance when the modem delivers the same SMS twice.
   const [recentPest] = await db.execute(
     `SELECT id FROM pest_alerts
      WHERE worker_id = ?
@@ -844,31 +855,90 @@ async function handlePest(workerId, workerName, phone) {
     return;
   }
 
+  if (task) {
+    await logWorkerAnalytics(workerId, task.id, 'PEST');
+    await db.execute(
+      `UPDATE scheduled_tasks SET status='Pest Detected', updated_at=NOW() WHERE id=?`,
+      [task.id]
+    );
+    console.log(`[Receiver] 🐛 Task ${task.id} → Pest Detected`);
+  }
+
   // Create pest incident
   await db.execute(
     `INSERT INTO pest_alerts (worker_id, phone, batch_id, task_id, status, reported_at)
-     VALUES (?, ?, ?, ?, 'Open', NOW())`,
+     VALUES (?, ?, ?, ?, 'Pending Pest Identification', NOW())`,
     [workerId, phone, task ? task.batch_id : null, task ? task.id : null]
   );
 
-  // Admin alert + SMS (only once, only to admin)
   const batchInfo = task && task.batch_name ? ` in ${task.batch_name}` : '';
-  const alertMsg = `PEST report from ${workerName} (${phone})${batchInfo}. Urgent inspection required.`;
+  const alertMsg = `PEST report from ${workerName} (${phone})${batchInfo}. Pending pest identification.`;
   await createAlert('PEST', workerId, workerName, phone, task ? task.id : null, alertMsg);
 
   const adminPhone = await getAdminPhone();
   if (adminPhone) {
     await queueAutoReply(
       adminPhone,
-      `AniAlerto URGENT: ${workerName} reported PEST${batchInfo}. Immediate inspection required. Phone: ${phone}.`,
+      `AniAlerto: ${workerName} reported PEST${batchInfo}. Waiting for pest identification. Phone: ${phone}.`,
       null
     );
   }
 
-  // Send pest guidance ONLY to the reporting worker
-  await queueAutoReply(phone, AUTO_REPLIES.PEST, workerId);
-  console.log(`[Receiver] 🐛 Pest incident logged for ${workerName}${batchInfo}`);
-  // Note: task status intentionally NOT changed for PEST
+  // Fetch active pest advisories to construct the menu
+  const [advisories] = await db.execute(`SELECT option_number, pest_name FROM pest_advisories WHERE is_active = 1 ORDER BY option_number ASC`);
+
+  let menuEN = "Pest report received.\nAnong uri ng peste ang nakita?\n\n";
+
+  let options = "";
+  advisories.forEach(adv => {
+    options += `${adv.option_number} - ${adv.pest_name.split(' (')[0]}\n`;
+  });
+
+  const pestMenu = menuEN + options + "\nI-reply lamang ang tamang numero.";
+
+  await queueAutoReply(phone, pestMenu, workerId);
+
+  await clearHelpSession(phone, workerId);
+  await clearDelaySession(phone, workerId);
+
+  console.log(`[Receiver] 🐛 Pest incident logged for ${workerName}${batchInfo}. Menu sent.`);
+}
+
+async function handlePestReply(number, workerId, workerName, phone, pestAlertId) {
+  const [advisories] = await db.execute(`SELECT id, pest_name, advisory_en, advisory_tl FROM pest_advisories WHERE option_number = ? AND is_active = 1`, [number]);
+
+  if (advisories.length === 0) {
+    await queueAutoReply(phone, 'Invalid reply. Please reply with a valid number from the choices.\n\nHindi wastong sagot. Sumagot ng tamang numero mula sa pagpipilian.', workerId);
+    return;
+  }
+
+  const advisory = advisories[0];
+  const combinedAdvisory = `${advisory.advisory_en}\n\n${advisory.advisory_tl}`;
+
+  await db.execute(
+    `UPDATE pest_alerts SET status='Identified', pest_type_id=?, advisory_sent=? WHERE id=?`,
+    [advisory.id, combinedAdvisory, pestAlertId]
+  );
+
+  await queueAutoReply(phone, combinedAdvisory, workerId);
+
+  const adminPhone = await getAdminPhone();
+  if (adminPhone) {
+    await queueAutoReply(
+      adminPhone,
+      `AniAlerto: ${workerName} identified pest as ${advisory.pest_name}. Advisory sent.`,
+      null
+    );
+  }
+
+  try {
+    await db.execute(
+      `UPDATE alerts SET message = CONCAT(message, '\nIdentified as: ', ?) WHERE type='PEST' AND worker_id=? AND is_read=0 ORDER BY created_at DESC LIMIT 1`,
+      [advisory.pest_name, workerId]
+    );
+  } catch (e) { }
+
+  console.log(`[Receiver] 🐛 Pest identified by ${workerName} as ${advisory.pest_name}`);
 }
 
 // ─── Main Polling Handler ─────────────────────────────────────────────────────
@@ -883,19 +953,19 @@ async function processIncoming() {
     // ── Auto-purge operator spam ──────────────────────────────────────────────
     if (isShortCode(sms.phone)) {
       console.log(`[Receiver] 🗑️  Spam from ${sms.phone} — purging`);
-      await deleteSMS(sms.index).catch(() => {});
+      await deleteSMS(sms.index).catch(() => { });
       continue;
     }
 
     const normalizedPhone = normalizePhone(sms.phone);
-    const text    = sms.text.toUpperCase().trim();
+    const text = sms.text.toUpperCase().trim();
     const command = KNOWN_COMMANDS.find(c => text.startsWith(c)) || null;
 
     try {
       // ── Gate 1: Registered-worker check ──────────────────────────────────
       const variants = phoneVariants(normalizedPhone);
       const altPhone = variants[1] || normalizedPhone;
-      const key      = phoneKey(normalizedPhone);
+      const key = phoneKey(normalizedPhone);
 
       const [workerRows] = await db.execute(
         `SELECT id, name FROM workers
@@ -907,19 +977,94 @@ async function processIncoming() {
 
       if (workerRows.length === 0) {
         console.log(`[Receiver] 🚫 Unregistered: ${normalizedPhone} — purging`);
-        await deleteSMS(sms.index).catch(() => {});
+        await deleteSMS(sms.index).catch(() => { });
         continue;
       }
 
-      const workerId   = workerRows[0].id;
+      const workerId = workerRows[0].id;
       const workerName = workerRows[0].name;
       console.log(`[Receiver] 👤 Verified: ${workerName} (${normalizedPhone})`);
 
-      // ── Help session intercept: reply 1-6 while awaiting menu selection ─────
-      const helpNum = sms.text.trim();
-      if (/^[1-6]$/.test(helpNum)) {
+      // ── Pest session intercept ──────────────────────────────────────────────
+      const [pestSessions] = await db.execute(
+        `SELECT id FROM pest_alerts WHERE worker_id = ? AND status = 'Pending Pest Identification' ORDER BY reported_at DESC LIMIT 1`,
+        [workerId]
+      );
+      if (pestSessions.length > 0) {
+        const pestAlertId = pestSessions[0].id;
+        const cleanNum = sms.text.replace(/[^0-9]/g, '');
+        if (cleanNum && cleanNum.length < 3) {
+          await db.execute(
+            `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
+              VALUES (?, ?, ?, NOW())`,
+            [normalizedPhone, sms.text, `PEST_REPLY:${cleanNum}`]
+          );
+          await handlePestReply(cleanNum, workerId, workerName, normalizedPhone, pestAlertId);
+          await deleteSMS(sms.index).catch(() => { });
+          continue;
+        }
+      }
+
+      // ── Help description and More Help Prompt intercept ────────────────────
+      const textMsg = sms.text.trim();
+      if (command === null) {
         const session = await getHelpSession(normalizedPhone, workerId);
-        if (session) {
+
+        // 1. MORE_HELP_PROMPT (Accepts 1, 2, YES, NO, OO, HINDI)
+        if (session && session.step === 'MORE_HELP_PROMPT') {
+          const reply = textMsg.toUpperCase();
+          if (reply === '1' || reply === 'YES' || reply === 'OO') {
+            await db.execute(`UPDATE help_sessions SET step='MAIN_MENU', created_at=NOW() WHERE id=?`, [session.id]);
+
+            // FIX: Replaced non-existent variables with the correct HELP_MENU variable
+            await queueAutoReply(normalizedPhone, HELP_MENU, workerId);
+
+            await db.execute(
+              `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at) VALUES (?, ?, 'HELP_MORE:YES', NOW())`,
+              [normalizedPhone, textMsg]
+            );
+            await deleteSMS(sms.index).catch(() => { });
+            continue;
+          } else if (reply === '2' || reply === 'NO' || reply === 'HINDI') {
+            await clearHelpSession(normalizedPhone, workerId);
+            await queueAutoReply(normalizedPhone, "Thank you! Goodbye.\n\nSalamat. Mag-ingat lagi!", workerId);
+            await db.execute(
+              `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at) VALUES (?, ?, 'HELP_MORE:NO', NOW())`,
+              [normalizedPhone, textMsg]
+            );
+            await deleteSMS(sms.index).catch(() => { });
+            continue;
+          } else {
+            await queueAutoReply(normalizedPhone, "Invalid reply. Please reply with 1 (Yes) or 2 (No).\n\nHindi wastong sagot. Sumagot ng 1 (Oo) o 2 (Hindi).", workerId);
+            await deleteSMS(sms.index).catch(() => { });
+            continue;
+          }
+        }
+
+        // 2. OTHER_HELP_DESC intercept (for option 7)
+        if (session && session.step === 'OTHER_HELP_DESC' && !(/^[1-7]$/.test(textMsg))) {
+          await db.execute(
+            `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
+             VALUES (?, ?, ?, NOW())`,
+            [normalizedPhone, sms.text, 'HELP_DESC']
+          );
+          await db.execute(`UPDATE help_sessions SET step='MORE_HELP_PROMPT', created_at=NOW() WHERE id=?`, [session.id]);
+          await db.execute(
+            `UPDATE sms_logs SET response_text = ?, received_at = NOW() WHERE direction = 'Outbound' AND response_text LIKE 'HELP%' AND (worker_id = ? OR phone = ? OR ${phoneMatchExpr('phone')} = ?) ORDER BY created_at DESC LIMIT 1`,
+            [`HELP: Other - ${sms.text.substring(0, 50)}`, workerId, normalizedPhone, phoneKey(normalizedPhone)]
+          );
+          await queueAutoReply(normalizedPhone, 'Help description recorded. The admin has been notified.\n\nNaitala ang iyong kailangan. Inabisuhan na ang admin.', workerId);
+          await queueAutoReply(normalizedPhone, MORE_HELP_MENU, workerId);
+          await deleteSMS(sms.index).catch(() => { });
+          continue;
+        }
+      }
+
+      // ── Help session intercept: reply 1-7 while awaiting menu selection ─────
+      const helpNum = sms.text.trim();
+      if (/^[1-7]$/.test(helpNum)) {
+        const session = await getHelpSession(normalizedPhone, workerId);
+        if (session && session.step !== 'OTHER_HELP_DESC') {
           console.log(`[Receiver] 🆘 Help sub-reply from ${workerName}: "${helpNum}"`);
           await db.execute(
             `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
@@ -927,27 +1072,28 @@ async function processIncoming() {
             [normalizedPhone, sms.text, `HELP:${helpNum}`]
           );
           await handleHelpReply(helpNum, workerId, workerName, normalizedPhone, session);
-          await deleteSMS(sms.index).catch(() => {});
+          await deleteSMS(sms.index).catch(() => { });
           continue;
         }
       }
 
-      // ── Invalid reply while in help or delay session: check sessions ─────────
+      // ── Delay session intercept ─────────────────────────────────────────────
       if (command === null) {
         const session = await getHelpSession(normalizedPhone, workerId);
         if (session) {
           console.log(`[Receiver] ⚠️  Invalid help menu reply from ${workerName}: "${sms.text}"`);
           await queueAutoReply(normalizedPhone, HELP_INVALID_REPLY, workerId);
-          await deleteSMS(sms.index).catch(() => {});
+          await deleteSMS(sms.index).catch(() => { });
           continue;
         }
 
         const delaySession = await getDelaySession(normalizedPhone, workerId);
         if (delaySession) {
-          if (!sms.text.trim()) {
-            console.log(`[Receiver] ⚠️  Empty delay reason from ${workerName}`);
-            await queueAutoReply(normalizedPhone, `AniAlerto: Reason for delay? / Dahilan ng pagka-delay?`, workerId);
-            await deleteSMS(sms.index).catch(() => {});
+          const cleanText = sms.text.replace(/[^a-zA-Z0-9]/g, '');
+          if (cleanText.length < 4) {
+            console.log(`[Receiver] ⚠️  Invalid delay reason from ${workerName}`);
+            await queueAutoReply(normalizedPhone, `AniAlerto: Please provide a valid reason for delay (at least 4 letters/numbers).\n\nMangyaring magbigay ng malinaw na dahilan ng pagka-delay.`, workerId);
+            await deleteSMS(sms.index).catch(() => { });
             continue;
           }
 
@@ -957,19 +1103,19 @@ async function processIncoming() {
             `UPDATE alerts SET delay_reason = ? 
              WHERE type = 'DELAY' AND worker_id = ? AND delay_reason IS NULL
              ORDER BY created_at DESC LIMIT 1`,
-             [sms.text, workerId]
+            [sms.text, workerId]
           );
 
           await clearDelaySession(normalizedPhone, workerId);
-          
+
           await db.execute(
             `INSERT IGNORE INTO inbound_messages (phone, message, command, received_at)
              VALUES (?, ?, ?, NOW())`,
             [normalizedPhone, sms.text, 'DELAY_REASON']
           );
-          
+
           await queueAutoReply(normalizedPhone, `Reason recorded. Thank you.\n\nNaitala ang dahilan. Salamat.`, workerId);
-          await deleteSMS(sms.index).catch(() => {});
+          await deleteSMS(sms.index).catch(() => { });
           continue;
         }
 
@@ -981,7 +1127,7 @@ async function processIncoming() {
           [normalizedPhone, sms.text]
         );
         await queueAutoReply(normalizedPhone, AUTO_REPLIES.INVALID, workerId);
-        await deleteSMS(sms.index).catch(() => {});
+        await deleteSMS(sms.index).catch(() => { });
         continue;
       }
 
@@ -997,7 +1143,7 @@ async function processIncoming() {
 
       if (existing.length > 0) {
         console.log(`[Receiver] ⚠️  Duplicate — skipping insert, purging (${normalizedPhone})`);
-        await deleteSMS(sms.index).catch(() => {});
+        await deleteSMS(sms.index).catch(() => { });
         continue;
       }
 
@@ -1009,7 +1155,7 @@ async function processIncoming() {
       );
       if (inboundResult.affectedRows === 0) {
         console.log(`[Receiver] ⚠️  DB unique constraint caught duplicate — purging`);
-        await deleteSMS(sms.index).catch(() => {});
+        await deleteSMS(sms.index).catch(() => { });
         continue;
       }
       console.log(`[Receiver] 📩 ${workerName}: "${sms.text}" → ${command}`);
@@ -1040,10 +1186,10 @@ async function processIncoming() {
       }
 
       // ── Dispatch command handler ──────────────────────────────────────────
-      if (command === 'DONE')  await handleDone (workerId, workerName, normalizedPhone);
+      if (command === 'DONE') await handleDone(workerId, workerName, normalizedPhone);
       if (command === 'DELAY') await handleDelay(workerId, workerName, normalizedPhone);
-      if (command === 'HELP')  await handleHelp (workerId, workerName, normalizedPhone);
-      if (command === 'PEST')  await handlePest (workerId, workerName, normalizedPhone);
+      if (command === 'HELP') await handleHelp(workerId, workerName, normalizedPhone);
+      if (command === 'PEST') await handlePest(workerId, workerName, normalizedPhone);
 
       // ── Mark inbound_messages as processed ───────────────────────────────
       await db.execute(

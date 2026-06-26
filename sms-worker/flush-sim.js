@@ -1,91 +1,42 @@
-/**
- * flush-sim.js — Delete ALL messages from the modem SIM/memory.
- * Run once to clear spam so the modem can receive new worker replies.
- * Usage: node flush-sim.js
- */
-require('dotenv').config();
 const { SerialPort } = require('serialport');
+const COM_PORT = 'COM6';
+const BAUD_RATE = 9600;
 
-const COM_PORT  = process.env.COM_PORT  || 'COM7';
-const BAUD_RATE = parseInt(process.env.BAUD_RATE) || 9600;
+const port = new SerialPort({ path: COM_PORT, baudRate: BAUD_RATE });
 
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+let buffer = '';
 
-let port;
+port.on('open', () => {
+  console.log(`✅ Connected on ${COM_PORT}`);
+  
+  port.write('AT\r');
+  
+  setTimeout(() => {
+    port.write('AT+CMGF=1\r');
+  }, 1000);
 
-function sendRaw(cmd, waitMs = 5000) {
-  return new Promise((resolve) => {
-    let response = '';
-    let timer;
-    const onData = (data) => {
-      const chunk = data.toString();
-      response += chunk;
-      process.stdout.write(chunk);
-      if (response.includes('\nOK') || response.includes('\nERROR')) {
-        clearTimeout(timer);
-        port.removeListener('data', onData);
-        resolve(response.trim());
-      }
-    };
-    port.on('data', onData);
-    console.log(`\n>>> ${cmd}`);
-    port.write(cmd + '\r');
-    timer = setTimeout(() => {
-      port.removeListener('data', onData);
-      resolve(response.trim());
-    }, waitMs);
-  });
-}
+  setTimeout(() => {
+    // Delete all messages from all storage (1,4 means delete all)
+    console.log("Flushing all messages from modem...");
+    port.write('AT+CMGD=1,4\r');
+  }, 2000);
 
-async function run() {
-  console.log('=== AniAlerto SIM Flush ===');
-  console.log(`Port: ${COM_PORT}  Baud: ${BAUD_RATE}\n`);
+  setTimeout(() => {
+    port.write('AT+CPMS?\r');
+  }, 4000);
 
-  port = new SerialPort({ path: COM_PORT, baudRate: BAUD_RATE, autoOpen: false });
+  setTimeout(() => {
+    console.log("\n=== MODEM RESPONSE ===");
+    console.log(buffer);
+    process.exit(0);
+  }, 6000);
+});
 
-  await new Promise((resolve, reject) => {
-    port.open(err => {
-      if (err) { reject(err); return; }
-      console.log(`✅ Port ${COM_PORT} opened.\n`);
-      resolve();
-    });
-  });
+port.on('data', (data) => {
+  buffer += data.toString();
+});
 
-  await delay(1000);
-
-  // Handshake
-  await sendRaw('AT');
-
-  // Text mode
-  await sendRaw('AT+CMGF=1');
-
-  // Use MT storage (covers SIM + phone memory)
-  await sendRaw('AT+CPMS="MT","SM","SM"');
-
-  // Show what's on the modem BEFORE delete
-  console.log('\n--- Messages BEFORE flush ---');
-  await sendRaw('AT+CMGL="ALL"', 10000);
-
-  // Delete ALL messages (flag 4 = all messages regardless of status)
-  console.log('\n--- Deleting ALL messages (AT+CMGD=1,4) ---');
-  await sendRaw('AT+CMGD=1,4', 10000);
-
-  // Verify empty
-  console.log('\n--- Messages AFTER flush (should be empty) ---');
-  const after = await sendRaw('AT+CMGL="ALL"', 10000);
-
-  if (!after.includes('+CMGL:')) {
-    console.log('\n✅ SIM is now EMPTY. Modem can receive new messages.');
-  } else {
-    console.warn('\n⚠️  Some messages still remain — try running again.');
-  }
-
-  port.close();
-  console.log('\n✅ Done. You can now restart the worker: node index.js');
-}
-
-run().catch(err => {
-  console.error('FATAL:', err.message);
-  if (port && port.isOpen) port.close();
+port.on('error', (err) => {
+  console.error('❌ Error:', err.message);
   process.exit(1);
 });

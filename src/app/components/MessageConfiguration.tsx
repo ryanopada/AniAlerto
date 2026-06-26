@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 interface MessageTemplate {
   id: string;
   name: string;
-  category: "First Plowing" | "Harrowing" | "Irrigation / Patubig" | "Pesticide Spray / Pang-uod" | "Herbicide Spray / Pang-damo" | "Fertilizer / Abono 1" | "Fertilizer / Abono 2 / Last Dressing" | "Harvest Readiness" | "Irrigation" | "Fertilization" | "Pest Control" | "Harvest" | "General";
+  category: "First Plowing" | "Harrowing" | "Plant Date / Planting" | "Irrigation / Patubig" | "Pesticide Spray / Pang-uod" | "Herbicide Spray / Pang-damo" | "Fertilizer / Abono 1" | "Fertilizer / Abono 2 / Last Dressing" | "Harvest Readiness" | "Irrigation" | "Fertilization" | "Pest Control" | "Harvest" | "General";
   message: string;
   days_after_planting: number;
   active: boolean | number;
@@ -64,10 +64,10 @@ export function MessageConfiguration() {
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [managerAction, setManagerAction] = useState<string | null>(null);
-  
-  const API_URL     = "http://localhost/anialerto-backend/src/message_config.php";
-  const BATCHES_URL = "http://localhost/anialerto-backend/src/batches.php";
-  const MANAGE_URL  = "http://localhost/anialerto-backend/src/manage_scheduled.php";
+
+  const API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/message_config.php";
+  const BATCHES_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/batches.php";
+  const MANAGE_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/manage_scheduled.php";
 
   const emptyForm = {
     name: "",
@@ -131,19 +131,24 @@ export function MessageConfiguration() {
   const categories: MessageTemplate["category"][] = [
     "First Plowing",
     "Harrowing",
+    "Plant Date / Planting",
     "Irrigation / Patubig",
     "Fertilizer / Abono 1",
     "Fertilizer / Abono 2 / Last Dressing",
     "Harvest Readiness",
   ];
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   const handleCreateTemplate = () => {
+    setFormError(null);
     setEditingTemplate(null);
     setFormData(emptyForm);
     setIsDialogOpen(true);
   };
 
   const handleEditTemplate = (template: MessageTemplate) => {
+    setFormError(null);
     setEditingTemplate(template);
     setFormData({
       name: template.name,
@@ -164,6 +169,7 @@ export function MessageConfiguration() {
     switch (cat) {
       case "First Plowing": return -14;
       case "Harrowing": return -7;
+      case "Plant Date / Planting": return 0;
       case "Irrigation / Patubig": return 8;
       case "Pesticide Spray / Pang-uod": return 15;
       case "Herbicide Spray / Pang-damo": return 20;
@@ -184,7 +190,7 @@ export function MessageConfiguration() {
     if (!isNaN(offset)) {
       p.setDate(p.getDate() + offset);
     }
-    
+
     if (timeStr) {
       const [hh, mm] = timeStr.split(':');
       const h = parseInt(hh, 10);
@@ -197,9 +203,9 @@ export function MessageConfiguration() {
     } else {
       p.setHours(7, 0, 0, 0);
     }
-    
+
     if (isNaN(p.getTime())) return "";
-    
+
     const year = p.getFullYear();
     const month = String(p.getMonth() + 1).padStart(2, '0');
     const day = String(p.getDate()).padStart(2, '0');
@@ -302,11 +308,24 @@ export function MessageConfiguration() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.batch_id) {
-      alert("Target Batch is required.");
+    setFormError(null);
+    
+    if (!formData.name.trim() || !formData.message.trim()) {
+      setFormError("Template Name and Message cannot be empty.");
       return;
     }
+
+    if (!formData.batch_id) {
+      setFormError("Target Batch is required.");
+      return;
+    }
+
     const computedDays = daysCalc ?? formData.days_after_planting;
+    if (isNaN(computedDays) || computedDays < 0) {
+      setFormError("Trigger days must be a positive number.");
+      return;
+    }
+
     const payload = {
       ...formData,
       id: editingTemplate?.id,
@@ -318,14 +337,25 @@ export function MessageConfiguration() {
       plant_date: formData.plant_date || null,
       scheduled_send_datetime: formData.scheduled_send_datetime || null,
     };
-    await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setIsDialogOpen(false);
-    fetchTemplates();
-    fetchScheduledMessages();
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && result.status !== "error") {
+        setIsDialogOpen(false);
+        fetchTemplates();
+        fetchScheduledMessages();
+      } else {
+        setFormError(result.message || result.error || "Server error.");
+      }
+    } catch (err) {
+      console.error(err);
+      setFormError("An unexpected error occurred.");
+    }
   };
 
   const stats = useMemo(() => ({
@@ -337,19 +367,19 @@ export function MessageConfiguration() {
   const filteredTemplates = useMemo(() => {
     return templates.filter((template) => {
       const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            template.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            template.message.toLowerCase().includes(searchQuery.toLowerCase());
+        template.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.message.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSearch;
     });
   }, [templates, searchQuery]);
 
   const getResponseColor = (response: string) => {
     switch (response) {
-      case "DONE":  return "bg-green-100 text-green-800 border-green-300";
+      case "DONE": return "bg-green-100 text-green-800 border-green-300";
       case "DELAY": return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "HELP":  return "bg-red-100 text-red-800 border-red-300";
-      case "PEST":  return "bg-orange-100 text-orange-800 border-orange-300";
-      default:      return "bg-gray-100 text-gray-800 border-gray-300";
+      case "HELP": return "bg-red-100 text-red-800 border-red-300";
+      case "PEST": return "bg-orange-100 text-orange-800 border-orange-300";
+      default: return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
 
@@ -357,6 +387,7 @@ export function MessageConfiguration() {
     switch (category) {
       case "First Plowing": return "bg-gray-100 text-gray-800";
       case "Harrowing": return "bg-slate-100 text-slate-800";
+      case "Plant Date / Planting": return "bg-lime-100 text-lime-800";
       case "Irrigation / Patubig": return "bg-blue-100 text-blue-800";
       case "Pesticide Spray / Pang-uod": return "bg-red-100 text-red-800";
       case "Herbicide Spray / Pang-damo": return "bg-orange-100 text-orange-800";
@@ -386,19 +417,24 @@ export function MessageConfiguration() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-            <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={handleCreateTemplate}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Template
-            </Button>
-          </motion.div>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-[1.5rem] border border-[#d9ead6] bg-[#f8fdf3] shadow-2xl shadow-[#a4c692]/20">
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+              <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={handleCreateTemplate}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Template
+              </Button>
+            </motion.div>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-[1.5rem] border border-[#d9ead6] bg-[#f8fdf3] shadow-2xl shadow-[#a4c692]/20">
             <DialogHeader>
-              <DialogTitle>{editingTemplate ? "Edit Message Template" : "Create New Message Template"}</DialogTitle>
-              <DialogDescription>{editingTemplate ? "Update the message template below" : "Create a new SMS message template for farm activities"}</DialogDescription>
+              <DialogTitle className="text-[#3d5a36] text-xl font-bold">{editingTemplate ? "Edit Template" : "Create New Template"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  {formError}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="name">Template Name</Label>
                 <Input id="name" placeholder="e.g., First Irrigation Reminder" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
@@ -431,11 +467,11 @@ export function MessageConfiguration() {
               {/* Category / Rule */}
               <div className="space-y-2">
                 <Label htmlFor="category">Category (Crop Rule)</Label>
-                <select 
-                  id="category" 
-                  className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" 
-                  value={formData.category} 
-                  onChange={(e) => handleCategoryChange(e.target.value as MessageTemplate["category"])} 
+                <select
+                  id="category"
+                  className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]"
+                  value={formData.category}
+                  onChange={(e) => handleCategoryChange(e.target.value as MessageTemplate["category"])}
                   required
                 >
                   {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -474,11 +510,20 @@ export function MessageConfiguration() {
                 </div>
               </div>
 
-              {/* Message Content */}
-              <div className="space-y-2">
-                <Label htmlFor="message">Message Content</Label>
-                <Textarea id="message" placeholder="Enter the SMS message content..." value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={4} required />
-                <p className="text-xs text-gray-500">Character count: {formData.message.length} (SMS limit: 160 characters per message)</p>
+              <div className="space-y-2 relative">
+                <Label htmlFor="message">Message Content <span className="text-red-500">*</span></Label>
+                <Textarea
+                  id="message"
+                  className="min-h-[120px] rounded-xl border-[#d9ead6] focus:border-[#a4c692]"
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  required
+                />
+                <div className={`text-xs mt-1 font-medium flex justify-end ${formData.message.length > 160 ? 'text-amber-600' : 'text-gray-400'}`}>
+                  {formData.message.length > 160 && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
+                  {formData.message.length} / 160 chars
+                  {formData.message.length > 160 && " (May send as multiple SMS)"}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="active" checked={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.checked })} className="h-4 w-4" />
@@ -544,31 +589,31 @@ export function MessageConfiguration() {
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="p-6 border-t border-[#e5ede0] bg-[#f8fdf3]">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-[#575761]">Messages by Category</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={categories.map(cat => ({ name: cat, value: templates.filter(t => t.category === cat).length })).filter(d => d.value > 0)} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                        <Cell fill="#8acb88" /><Cell fill="#ffbf46" /><Cell fill="#648381" /><Cell fill="#575761" /><Cell fill="#e4fde1" />
-                        <Cell fill="#a2d2ff" /><Cell fill="#cdb4db" /><Cell fill="#ffc8dd" /><Cell fill="#bde0fe" /><Cell fill="#ffafcc" />
-                      </Pie>
-                      <Tooltip /><Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-[#575761]">Template Status</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={[{ name: 'Active', value: templates.filter(t => !!t.active).length }, { name: 'Inactive', value: templates.filter(t => !t.active).length }]} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                        <Cell fill="#8acb88" /><Cell fill="#648381" />
-                      </Pie>
-                      <Tooltip /><Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-[#575761]">Messages by Category</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={categories.map(cat => ({ name: cat, value: templates.filter(t => t.category === cat).length })).filter(d => d.value > 0)} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
+                      <Cell fill="#8acb88" /><Cell fill="#ffbf46" /><Cell fill="#648381" /><Cell fill="#575761" /><Cell fill="#e4fde1" />
+                      <Cell fill="#a2d2ff" /><Cell fill="#cdb4db" /><Cell fill="#ffc8dd" /><Cell fill="#bde0fe" /><Cell fill="#ffafcc" />
+                    </Pie>
+                    <Tooltip /><Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-[#575761]">Template Status</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={[{ name: 'Active', value: templates.filter(t => !!t.active).length }, { name: 'Inactive', value: templates.filter(t => !t.active).length }]} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
+                      <Cell fill="#8acb88" /><Cell fill="#648381" />
+                    </Pie>
+                    <Tooltip /><Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </CollapsibleContent>
         </Collapsible>
       </motion.div>
@@ -622,7 +667,7 @@ export function MessageConfiguration() {
                       {scheduledMessages.map((m) => {
                         const isTest = m.is_test === 1;
                         const isProcessed = !m.active || !!m.queued_at;
-                        const delBusy  = managerAction === m.id + '-del';
+                        const delBusy = managerAction === m.id + '-del';
                         const sentBusy = managerAction === m.id + '-sent';
                         const testBusy = managerAction === m.id + '-test';
                         return (
@@ -704,65 +749,65 @@ export function MessageConfiguration() {
             </div>
           </CardHeader>
           <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-[#f3faf2]">
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Target Batch</TableHead>
-                  <TableHead>Send Time</TableHead>
-                  <TableHead>Message Preview</TableHead>
-                  <TableHead>Day</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTemplates.map((template, index) => (
-                  <motion.tr
-                    key={template.id}
-                    className="hover:bg-[#eff7ed] transition-colors duration-200"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, delay: index * 0.04 }}
-                  >
-                    <TableCell className="font-medium text-[#3d5a36]">{template.name}</TableCell>
-                    <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>{template.category}</span></TableCell>
-                    <TableCell>
-                      {template.batch_name
-                        ? <Badge variant="outline" className="border-[#d9ead6] text-[#3d5a36] flex items-center gap-1 w-fit"><Layers className="h-3 w-3" />{template.batch_name}</Badge>
-                        : <span className="text-xs text-[#7b8f6f] italic">All Batches</span>}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-1 text-sm text-[#556d4a] font-mono">
-                        <Clock className="h-3 w-3 text-[#5d8044]" />
-                        {template.scheduled_time ?? "06:00"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-xs"><p className="text-sm text-[#556d4a] truncate">{template.message}</p></TableCell>
-                    <TableCell className="text-center text-[#556d4a]">{template.days_after_planting}</TableCell>
-                    <TableCell>
-                      <Badge variant={template.active ? "default" : "secondary"} className="cursor-pointer" onClick={() => handleToggleActive(template.id)}>{template.active ? "Active" : "Inactive"}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2 justify-end">
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}><Eye className="h-4 w-4" /></Button>
-                        </motion.button>
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}><Edit className="h-4 w-4" /></Button>
-                        </motion.button>
-                      </div>
-                    </TableCell>
-                  </motion.tr>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-[#f3faf2]">
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Target Batch</TableHead>
+                    <TableHead>Send Time</TableHead>
+                    <TableHead>Message Preview</TableHead>
+                    <TableHead>Day</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTemplates.map((template, index) => (
+                    <motion.tr
+                      key={template.id}
+                      className="hover:bg-[#eff7ed] transition-colors duration-200"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35, delay: index * 0.04 }}
+                    >
+                      <TableCell className="font-medium text-[#3d5a36]">{template.name}</TableCell>
+                      <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>{template.category}</span></TableCell>
+                      <TableCell>
+                        {template.batch_name
+                          ? <Badge variant="outline" className="border-[#d9ead6] text-[#3d5a36] flex items-center gap-1 w-fit"><Layers className="h-3 w-3" />{template.batch_name}</Badge>
+                          : <span className="text-xs text-[#7b8f6f] italic">All Batches</span>}
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1 text-sm text-[#556d4a] font-mono">
+                          <Clock className="h-3 w-3 text-[#5d8044]" />
+                          {template.scheduled_time ?? "06:00"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-xs"><p className="text-sm text-[#556d4a] truncate">{template.message}</p></TableCell>
+                      <TableCell className="text-center text-[#556d4a]">{template.days_after_planting}</TableCell>
+                      <TableCell>
+                        <Badge variant={template.active ? "default" : "secondary"} className="cursor-pointer" onClick={() => handleToggleActive(template.id)}>{template.active ? "Active" : "Inactive"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2 justify-end">
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}><Eye className="h-4 w-4" /></Button>
+                          </motion.button>
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}><Edit className="h-4 w-4" /></Button>
+                          </motion.button>
+                        </div>
+                      </TableCell>
+                    </motion.tr>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

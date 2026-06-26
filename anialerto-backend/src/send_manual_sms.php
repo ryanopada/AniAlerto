@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $batchStmt = $db->prepare("
             SELECT fb.id, fb.name 
             FROM farm_batches fb 
-            WHERE fb.status = 'Active'
+            WHERE fb.status != 'Harvested'
             ORDER BY fb.name ASC
         ");
         $batchStmt->execute();

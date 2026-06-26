@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Search, Users, UserCheck, UserX, ChevronDown, ChevronUp, BarChart3, Loader2, MessageSquare, Send, Inbox, CheckCircle, Clock, AlertCircle, X } from "lucide-react";
+import { Plus, Edit, Search, Users, UserCheck, UserX, UserMinus, ChevronDown, ChevronUp, BarChart3, Loader2, MessageSquare, Send, Inbox, CheckCircle, Clock, AlertCircle, X } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -19,6 +19,8 @@ interface Worker {
   assignedBatches: string; // display name shown in the table
   batchIds: string[];      // numeric ids sent to backend
   status: "Active" | "Inactive";
+  unresponsive: number;
+  missed_response_count: number;
 }
 
 interface Batch {
@@ -45,7 +47,7 @@ interface SMSSummary {
 
 export function WorkerManagement() {
   const [workers, setWorkers] = useState<Worker[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]); 
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -54,9 +56,10 @@ export function WorkerManagement() {
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [smsHistory, setSmsHistory] = useState<SMSRecord[]>([]);
   const [smsSummary, setSmsSummary] = useState<SMSSummary | null>(null);
+  const [workerAnalytics, setWorkerAnalytics] = useState<any[]>([]);
   const [smsLoading, setSmsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Unresponsive" | "Inactive">("All");
   const [selectedFilterBatchId, setSelectedFilterBatchId] = useState<string>("");
 
   // Quick Send SMS state
@@ -64,6 +67,8 @@ export function WorkerManagement() {
   const [sendTo, setSendTo] = useState<"all" | "batch" | "individual">("all");
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
+
+  const [formError, setFormError] = useState<string | null>(null);
   const [smsMessage, setSmsMessage] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
   const [sendResult, setSendResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -80,9 +85,10 @@ export function WorkerManagement() {
     status: "Active",
   });
 
-  const WORKER_API_URL = "http://localhost/anialerto-backend/src/workers.php";
-  const BATCH_API_URL = "http://localhost/anialerto-backend/src/batches.php";
-  const SMS_HISTORY_API_URL = "http://localhost/anialerto-backend/src/worker_sms_history.php";
+  const WORKER_API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/workers.php";
+  const BATCH_API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/batches.php";
+  const SMS_HISTORY_API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/worker_sms_history.php";
+  const WORKER_ANALYTICS_API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/worker_analytics.php";
 
   const fetchWorkers = async (batchId?: string) => {
     setLoading(true);
@@ -94,12 +100,14 @@ export function WorkerManagement() {
       const data = await response.json();
       // Map API fields
       setWorkers(data.map((w: any) => ({
-        id:              w.id,
-        name:            w.name,
-        phone:           w.phone,
-        status:          w.status,
+        id: w.id,
+        name: w.name,
+        phone: w.phone,
+        status: w.status,
         assignedBatches: w.assignedBatches || '-',
-        batchIds:        w.batchIds || [],
+        batchIds: w.batchIds || [],
+        unresponsive: Number(w.unresponsive) || 0,
+        missed_response_count: Number(w.missed_response_count) || 0,
       })));
     } catch (error) {
       console.error("Error loading workers:", error);
@@ -128,11 +136,44 @@ export function WorkerManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    const name = formData.name.trim();
+    if (!name) {
+      setFormError("Worker name cannot be empty.");
+      return;
+    }
+
+    const phone = formData.phone.replace(/[-\s]/g, "");
+    if (!/^(09|\+639)\d{9}$/.test(phone)) {
+      setFormError("Phone number must be a valid PH mobile number (e.g., 09123456789 or +639123456789).");
+      return;
+    }
+
+    // Frontend check for duplicate phone number
+    const normalizedNewPhone = phone.startsWith("09") ? "+63" + phone.substring(1) : phone;
+    const isDuplicate = workers.some((w) => {
+      if (editingWorker && w.id === editingWorker.id) return false;
+      
+      const cleanExisting = w.phone.replace(/[-\s]/g, "");
+      const normalizedExisting = cleanExisting.startsWith("09") 
+        ? "+63" + cleanExisting.substring(1) 
+        : cleanExisting;
+        
+      return normalizedExisting === normalizedNewPhone;
+    });
+
+    if (isDuplicate) {
+      window.alert("Error: Phone number is already registered.");
+      setFormError("Phone number is already registered.");
+      return;
+    }
+
     const method = editingWorker ? "PUT" : "POST";
 
     const payload = editingWorker
-      ? { id: editingWorker.id, name: formData.name, phone: formData.phone, status: formData.status, batchIds: formData.batchIds }
-      : { name: formData.name, phone: formData.phone, status: formData.status, batchIds: formData.batchIds };
+      ? { id: editingWorker.id, name, phone, status: formData.status, batchIds: formData.batchIds }
+      : { name, phone, status: formData.status, batchIds: formData.batchIds };
 
     try {
       const response = await fetch(WORKER_API_URL, {
@@ -141,26 +182,33 @@ export function WorkerManagement() {
         body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
+      const responseData = await response.json().catch(() => ({}));
+
+      if (response.ok && responseData.status !== "error") {
         setIsDialogOpen(false);
         fetchWorkers();
+      } else {
+        const errorMsg = responseData.error || responseData.message || "An error occurred while saving.";
+        window.alert("Error: " + errorMsg);
+        setFormError(errorMsg);
       }
     } catch (error) {
-      console.error("Error saving worker:", error);
+      window.alert("Network Error: Could not save worker.");
+      setFormError("Network Error: Could not save worker.");
     }
   };
 
   // Toggle a worker between Active ↔ Inactive (no deletion)
   const handleToggleStatus = async (worker: Worker) => {
     const newStatus = worker.status === "Active" ? "Inactive" : "Active";
-    const action    = newStatus === "Inactive" ? "disable" : "re-enable";
+    const action = newStatus === "Inactive" ? "disable" : "re-enable";
     if (!confirm(`${action === "disable" ? "Disable" : "Re-enable"} ${worker.name}? They will ${newStatus === "Inactive" ? "stop receiving SMS reminders" : "resume receiving SMS reminders"}.`)) return;
 
     try {
       const response = await fetch(WORKER_API_URL, {
-        method:  "PATCH",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ id: worker.id, status: newStatus }),
+        body: JSON.stringify({ id: worker.id, status: newStatus }),
       });
       if (response.ok) {
         // Optimistic update — flip status in local state immediately
@@ -173,28 +221,49 @@ export function WorkerManagement() {
     }
   };
 
+  const handleReactivate = async (workerId: string) => {
+    if (!confirm("Are you sure you want to reactivate this worker and clear their Unresponsive flag?")) return;
+    try {
+      const response = await fetch(`${WORKER_API_URL}?action=reactivate`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: workerId }),
+      });
+      if (response.ok) {
+        setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, unresponsive: 0 } : w));
+      }
+    } catch (error) {
+      console.error("Error reactivating worker:", error);
+    }
+  };
+
   const filteredWorkers = useMemo(() => {
     return workers.filter((worker) => {
       const matchesSearch = worker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            worker.id.toString().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "All" || worker.status === statusFilter;
+        worker.id.toString().includes(searchQuery.toLowerCase());
+      let matchesStatus = true;
+      if (statusFilter === "Active") matchesStatus = worker.status === "Active" && worker.unresponsive === 0;
+      else if (statusFilter === "Unresponsive") matchesStatus = worker.status === "Active" && worker.unresponsive === 1;
+      else if (statusFilter === "Inactive") matchesStatus = worker.status === "Inactive";
+      
       return matchesSearch && matchesStatus;
     });
   }, [workers, searchQuery, statusFilter]);
 
   const stats = useMemo(() => ({
     total: workers.length,
-    active: workers.filter(w => w.status === "Active").length,
+    active: workers.filter(w => w.status === "Active" && w.unresponsive === 0).length,
+    unresponsive: workers.filter(w => w.status === "Active" && w.unresponsive === 1).length,
     inactive: workers.filter(w => w.status === "Inactive").length
   }), [workers]);
 
   const handleOpenEdit = (worker: Worker) => {
     setEditingWorker(worker);
     setFormData({
-      name:     worker.name,
-      phone:    worker.phone,
+      name: worker.name,
+      phone: worker.phone,
       batchIds: worker.batchIds || [],
-      status:   worker.status,
+      status: worker.status,
     });
     fetchBatches();
     setIsDialogOpen(true);
@@ -232,7 +301,7 @@ export function WorkerManagement() {
     if (!smsMessage.trim()) return;
     setSendLoading(true);
     try {
-      const res = await fetch("http://localhost/anialerto-backend/src/send_manual_sms.php", {
+      const res = await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/send_manual_sms.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -280,11 +349,11 @@ export function WorkerManagement() {
             </Button>
           </motion.div>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-            <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={() => { 
-              setEditingWorker(null); 
+            <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={() => {
+              setEditingWorker(null);
               setFormData({ name: "", phone: "", batchIds: [], status: "Active" });
-              fetchBatches(); 
-              setIsDialogOpen(true); 
+              fetchBatches();
+              setIsDialogOpen(true);
             }}>
               <Plus className="h-4 w-4 mr-2" /> Register Worker
             </Button>
@@ -324,46 +393,18 @@ export function WorkerManagement() {
       </AnimatePresence>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
         <StatCard title="Total Registry" value={stats.total} icon={<Users />} color="border-l-[#5d8044]" textColor="text-[#3d5a36]" />
-        <StatCard title="Active Personnel" value={stats.active} icon={<UserCheck />} color="border-l-[#5d8044]" textColor="text-[#5d8044]" />
+        <StatCard title="Active" value={stats.active} icon={<UserCheck />} color="border-l-[#5d8044]" textColor="text-[#5d8044]" />
+        <StatCard title="Unresponsive" value={stats.unresponsive} icon={<UserMinus />} color="border-l-orange-400" textColor="text-orange-600" />
         <StatCard title="Inactive" value={stats.inactive} icon={<UserX />} color="border-l-gray-300" textColor="text-gray-500" />
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.3 }}
-      >
-        <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
-              <div className="flex items-center gap-3 text-[#3d5a36]">
-                <BarChart3 className="h-5 w-5 text-[#5d8044]" />
-                <span className="font-semibold">Deployment Analytics</span>
-              </div>
-              {isVisualizationOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-6 border-t border-[#e5ede0] bg-[#f8fdf3]">
-            <div className="h-[250px] w-full rounded-[1.25rem] bg-white shadow-inner shadow-[#a4c692]/10 p-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[{ name: 'Active', count: stats.active }, { name: 'Inactive', count: stats.inactive }]}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#648381" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CollapsibleContent>
-        </Collapsible>
-      </motion.div>
+      
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -403,7 +444,6 @@ export function WorkerManagement() {
               <Table>
                 <TableHeader className="bg-[#f3faf2]">
                   <TableRow>
-                    <TableHead>ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Batch</TableHead>
@@ -420,7 +460,6 @@ export function WorkerManagement() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.35, delay: index * 0.04 }}
                     >
-                      <TableCell className="font-mono text-xs text-[#556d4a]">{worker.id}</TableCell>
                       <TableCell>
                         <button
                           className="font-medium text-[#3d5a36] hover:text-[#5d8044] hover:underline cursor-pointer flex items-center gap-1.5 transition-colors duration-200"
@@ -443,11 +482,34 @@ export function WorkerManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={worker.status === "Active" ? "bg-[#e4fde1] text-[#5d8044]" : "bg-gray-100 text-gray-500"}>
-                          {worker.status}
-                        </Badge>
+                        <div className="flex flex-col gap-1 items-start">
+                          {worker.status === "Inactive" ? (
+                            <Badge className="bg-gray-100 text-gray-500">Inactive</Badge>
+                          ) : worker.unresponsive === 1 ? (
+                            <Badge className="bg-orange-100 text-orange-600 border-orange-200">Unresponsive</Badge>
+                          ) : (
+                            <Badge className="bg-[#e4fde1] text-[#5d8044]">Active</Badge>
+                          )}
+                          {worker.missed_response_count > 0 && (
+                            <span className="text-[10px] text-gray-500 font-medium">
+                              Missed: {worker.missed_response_count}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
+                        {worker.unresponsive === 1 && (
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-8 text-xs px-2 mr-1"
+                              onClick={() => handleReactivate(worker.id)}
+                            >
+                              Reactivate
+                            </Button>
+                          </motion.button>
+                        )}
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                           <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(worker)}><Edit className="h-4 w-4 text-[#5d8044]" /></Button>
                         </motion.button>
@@ -490,13 +552,19 @@ export function WorkerManagement() {
             <DialogTitle className="text-[#3d5a36]">{editingWorker ? "Edit Worker" : "Register Worker"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+            {formError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                {formError}
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Full Name</Label>
-              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+              <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <Label>Phone Number</Label>
-              <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+              <Input value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <Label>Batch Assignment</Label>
@@ -523,7 +591,7 @@ export function WorkerManagement() {
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <select className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})}>
+              <select className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })}>
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
@@ -648,12 +716,12 @@ export function WorkerManagement() {
                             variant="outline"
                             className={
                               sms.status === "Sent" ? "border-green-300 text-green-700" :
-                              sms.status === "DONE" ? "border-green-300 text-green-700 bg-green-50" :
-                              sms.status === "DELAY" ? "border-yellow-300 text-yellow-700 bg-yellow-50" :
-                              sms.status === "HELP" ? "border-red-300 text-red-700 bg-red-50" :
-                              sms.status === "Queued" ? "border-gray-300 text-gray-600" :
-                              sms.status === "Failed" ? "border-red-300 text-red-600" :
-                              "border-[#d9ead6] text-[#556d4a]"
+                                sms.status === "DONE" ? "border-green-300 text-green-700 bg-green-50" :
+                                  sms.status === "DELAY" ? "border-yellow-300 text-yellow-700 bg-yellow-50" :
+                                    sms.status === "HELP" ? "border-red-300 text-red-700 bg-red-50" :
+                                      sms.status === "Queued" ? "border-gray-300 text-gray-600" :
+                                        sms.status === "Failed" ? "border-red-300 text-red-600" :
+                                          "border-[#d9ead6] text-[#556d4a]"
                             }
                           >
                             {sms.status}
@@ -694,11 +762,10 @@ export function WorkerManagement() {
                   <button
                     key={opt}
                     onClick={() => { setSendTo(opt); setSelectedWorkerIds([]); setSelectedBatchId(""); }}
-                    className={`p-3 rounded-xl text-sm font-medium border transition-all ${
-                      sendTo === opt
-                        ? "bg-[#5d8044] text-white border-[#5d8044] shadow-md"
-                        : "bg-white text-[#556d4a] border-[#d9ead6] hover:border-[#5d8044]"
-                    }`}
+                    className={`p-3 rounded-xl text-sm font-medium border transition-all ${sendTo === opt
+                      ? "bg-[#5d8044] text-white border-[#5d8044] shadow-md"
+                      : "bg-white text-[#556d4a] border-[#d9ead6] hover:border-[#5d8044]"
+                      }`}
                   >
                     {opt === "all" ? "📢 All Workers" : opt === "batch" ? "📦 By Batch" : "👤 Individual"}
                   </button>

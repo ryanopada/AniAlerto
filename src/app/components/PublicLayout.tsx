@@ -103,7 +103,7 @@ export function PublicLayout({ isAuthenticated }: PublicLayoutProps) {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        <Outlet context={{ openLoginModal: () => {} } satisfies PublicOutletContext} />
+        <Outlet context={{ openLoginModal: () => { } } satisfies PublicOutletContext} />
       </main>
 
       {/* Footer */}
@@ -121,8 +121,8 @@ export function PublicLayout({ isAuthenticated }: PublicLayoutProps) {
             </div>
             <div>
               <h3 className="font-bold text-lg mb-6 text-white">Contact Us</h3>
-              <p className="text-sm text-[#777] mb-2">Email: info@anialerto.com</p>
-              <p className="text-sm text-[#777]">Phone: +63 123 456 7890</p>
+              <p className="text-sm text-[#777] mb-2">Email: anialerto@gmail.com</p>
+              <p className="text-sm text-[#777]">Phone: +63 968 870 0922</p>
             </div>
             <div>
               <h3 className="font-bold text-lg mb-6 text-white">Quick Links</h3>

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Bell } from "lucide-react";
+import { LayoutDashboard, Layers, Users, MessageSquare, Activity, FileText, LogOut, Menu, X, Bell, Bug } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 

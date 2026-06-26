@@ -28,7 +28,7 @@ try {
             fb.harvest_date,
             fb.notes
         FROM farm_batches fb
-        WHERE fb.status IN ('Active', 'Planning', 'Harvested')
+        WHERE 1=1
         ORDER BY fb.planting_date DESC
     ");
     $batchStmt->execute();
@@ -74,8 +74,8 @@ try {
         // Build SMS schedule for this batch
         $smsSchedule = [];
         foreach ($allTemplates as $template) {
-            // Only include templates specifically assigned to this batch, or global ones
-            if (!empty($template['batch_id']) && $template['batch_id'] != $batch['id']) {
+            // Only include templates specifically assigned to this batch
+            if (empty($template['batch_id']) || $template['batch_id'] != $batch['id']) {
                 continue;
             }
 
@@ -100,17 +100,17 @@ try {
                 }
             }
 
-            // Check if SMS was actually queued/sent for this template + batch
+            // Check if there is an actual task for this template + batch to get its exact status
             $checkStmt = $db->prepare("
-                SELECT COUNT(*) as cnt FROM sms_queue sq
-                JOIN scheduled_tasks st ON sq.task_id = st.id
-                WHERE st.batch_id = :bid AND st.template_id = :tid
+                SELECT status FROM scheduled_tasks 
+                WHERE batch_id = :bid AND template_id = :tid
+                ORDER BY due_date DESC LIMIT 1
             ");
             $checkStmt->execute(['bid' => $batch['id'], 'tid' => $template['id']]);
-            $sentCheck = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            $taskData = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($sentCheck['cnt'] > 0) {
-                $status = 'sent';
+            if ($taskData) {
+                $status = strtolower($taskData['status']);
             }
 
             $smsSchedule[] = [

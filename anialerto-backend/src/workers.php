@@ -1,4 +1,6 @@
 <?php
+require_once 'Response.php';
+require_once 'Helpers.php';
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST, GET, PUT, PATCH, DELETE, OPTIONS");
@@ -9,9 +11,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 $host = "localhost";
-$db_name = "anialerto";
-$username = "root";
-$password = "";
+$db_name = "u268935662_AniAlerto";
+$username = "u268935662_anialerto123";
+$password = "AniAlerto123";
 $conn = new mysqli($host, $username, $password, $db_name);
 
 if ($conn->connect_error) {
@@ -26,7 +28,7 @@ switch($method) {
 
         // Join batch_workers + farm_batches to include each worker's current batch assignment.
         // GROUP BY w.id so that workers in multiple batches still return a single row.
-        $sql = "SELECT w.id, w.name, w.phone, w.status,
+        $sql = "SELECT w.id, w.name, w.phone, w.status, w.unresponsive, w.missed_response_count,
                        GROUP_CONCAT(bw.batch_id) AS batch_ids,
                        GROUP_CONCAT(fb.name SEPARATOR ', ') AS batch_names
                 FROM workers w
@@ -46,12 +48,14 @@ switch($method) {
             while ($row = $result->fetch_assoc()) {
                 $batchIds = !empty($row['batch_ids']) ? explode(',', $row['batch_ids']) : [];
                 $workers[] = [
-                    'id'              => $row['id'],
-                    'name'            => $row['name'],
-                    'phone'           => $row['phone'],
-                    'status'          => $row['status'],
-                    'batchIds'        => $batchIds,
-                    'assignedBatches' => $row['batch_names'] ?: '-',
+                    'id'                    => $row['id'],
+                    'name'                  => $row['name'],
+                    'phone'                 => $row['phone'],
+                    'status'                => $row['status'],
+                    'unresponsive'          => $row['unresponsive'],
+                    'missed_response_count' => $row['missed_response_count'],
+                    'batchIds'              => $batchIds,
+                    'assignedBatches'       => $row['batch_names'] ?: '-',
                 ];
             }
         }
@@ -60,8 +64,25 @@ switch($method) {
 
     case 'POST':
         $data = json_decode(file_get_contents("php://input"), true);
+        
+        $name = sanitize_string($data['name']);
+        if (empty($name)) {
+            Response::error("Name cannot be empty.", 400);
+        }
+
+        $phone = normalize_phone($data['phone']);
+        validate_phone($data['phone']);
+
+        $chk = $conn->prepare("SELECT id FROM workers WHERE phone = ?");
+        $chk->bind_param("s", $phone);
+        $chk->execute();
+        if ($chk->get_result()->num_rows > 0) {
+            Response::error("Phone number is already registered.", 400);
+        }
+        $chk->close();
+
         $stmt = $conn->prepare("INSERT INTO workers (name, phone, status) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $data['name'], $data['phone'], $data['status']);
+        $stmt->bind_param("sss", $name, $phone, $data['status']);
 
         if ($stmt->execute()) {
             $newId = $conn->insert_id;
@@ -84,14 +105,47 @@ switch($method) {
     case 'PUT':
         $data = json_decode(file_get_contents("php://input"), true);
 
+        // Handle Reactivation Endpoint
+        if (isset($_GET['action']) && $_GET['action'] === 'reactivate') {
+            if (!isset($data['id'])) {
+                echo json_encode(["status" => "error", "message" => "Missing ID"]);
+                break;
+            }
+            $stmt = $conn->prepare("UPDATE workers SET unresponsive = 0 WHERE id = ?");
+            $stmt->bind_param("i", $data['id']);
+            if ($stmt->execute()) {
+                echo json_encode(["status" => "reactivated"]);
+            } else {
+                echo json_encode(["status" => "error", "message" => $stmt->error]);
+            }
+            $stmt->close();
+            break;
+        }
+
         if (!isset($data['id'])) {
             echo json_encode(["status" => "error", "message" => "Missing ID"]);
             break;
         }
 
+        $name = sanitize_string($data['name']);
+        if (empty($name)) {
+            Response::error("Name cannot be empty.", 400);
+        }
+
+        $phone = normalize_phone($data['phone']);
+        validate_phone($data['phone']);
+
+        $chk = $conn->prepare("SELECT id FROM workers WHERE phone = ? AND id != ?");
+        $chk->bind_param("si", $phone, $data['id']);
+        $chk->execute();
+        if ($chk->get_result()->num_rows > 0) {
+            Response::error("Phone number is already registered to another worker.", 400);
+        }
+        $chk->close();
+
         // 1. Update the worker's basic fields (name, phone, status only — no batch column here)
         $stmt = $conn->prepare("UPDATE workers SET name=?, phone=?, status=? WHERE id=?");
-        $stmt->bind_param("sssi", $data['name'], $data['phone'], $data['status'], $data['id']);
+        $stmt->bind_param("sssi", $name, $phone, $data['status'], $data['id']);
 
         if (!$stmt->execute()) {
             echo json_encode(["status" => "error", "message" => $stmt->error]);

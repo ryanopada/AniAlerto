@@ -27,7 +27,7 @@ interface ScheduledMsg {
 
 type FilterTab = "all" | "pending" | "test" | "processed";
 
-const MANAGE_URL = "http://localhost/anialerto-backend/src/manage_scheduled.php";
+const MANAGE_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/manage_scheduled.php";
 
 export function ScheduledMessages() {
   const [messages, setMessages] = useState<ScheduledMsg[]>([]);
@@ -123,7 +123,7 @@ export function ScheduledMessages() {
   const filtered = useMemo(() => {
     let list = messages;
     if (tab === "pending") list = list.filter(m => m.active === 1 && !m.queued_at && m.is_test === 0);
-    if (tab === "test")    list = list.filter(m => m.is_test === 1);
+    if (tab === "test") list = list.filter(m => m.is_test === 1);
     if (tab === "processed") list = list.filter(m => !m.active || !!m.queued_at);
     if (search) {
       const q = search.toLowerCase();
@@ -137,8 +137,8 @@ export function ScheduledMessages() {
   }, [messages, tab, search]);
 
   const getStatusInfo = (m: ScheduledMsg) => {
-    if (m.is_test === 1)            return { label: "Test", cls: "bg-amber-100 text-amber-800 border-amber-300" };
-    if (!m.active || m.queued_at)   return { label: "Processed", cls: "bg-gray-100 text-gray-600 border-gray-300" };
+    if (m.is_test === 1) return { label: "Test", cls: "bg-amber-100 text-amber-800 border-amber-300" };
+    if (!m.active || m.queued_at) return { label: "Processed", cls: "bg-gray-100 text-gray-600 border-gray-300" };
     return { label: "Pending", cls: "bg-green-100 text-green-800 border-green-300" };
   };
 
@@ -148,9 +148,9 @@ export function ScheduledMessages() {
   };
 
   const tabs: { key: FilterTab; label: string; count: number }[] = [
-    { key: "all",       label: "All",       count: stats.total     },
-    { key: "pending",   label: "Pending",   count: stats.pending   },
-    { key: "test",      label: "Test",      count: stats.test      },
+    { key: "all", label: "All", count: stats.total },
+    { key: "pending", label: "Pending", count: stats.pending },
+    { key: "test", label: "Test", count: stats.test },
     { key: "processed", label: "Processed", count: stats.processed },
   ];
 
@@ -163,9 +163,8 @@ export function ScheduledMessages() {
             initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -30 }}
-            className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-medium text-white ${
-              toast.type === "success" ? "bg-[#5d8044]" : "bg-red-600"
-            }`}
+            className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-medium text-white ${toast.type === "success" ? "bg-[#5d8044]" : "bg-red-600"
+              }`}
           >
             {toast.msg}
           </motion.div>
@@ -228,10 +227,10 @@ export function ScheduledMessages() {
         className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
         {[
-          { label: "Total",     value: stats.total,     icon: <ListChecks />,   color: "border-l-[#5d8044]", text: "text-[#3d5a36]" },
-          { label: "Pending",   value: stats.pending,   icon: <Clock />,        color: "border-l-blue-400",  text: "text-blue-700"  },
-          { label: "Test",      value: stats.test,      icon: <FlaskConical />, color: "border-l-amber-400", text: "text-amber-700" },
-          { label: "Processed", value: stats.processed, icon: <CheckCircle2 />, color: "border-l-gray-400",  text: "text-gray-600"  },
+          { label: "Total", value: stats.total, icon: <ListChecks />, color: "border-l-[#5d8044]", text: "text-[#3d5a36]" },
+          { label: "Pending", value: stats.pending, icon: <Clock />, color: "border-l-blue-400", text: "text-blue-700" },
+          { label: "Test", value: stats.test, icon: <FlaskConical />, color: "border-l-amber-400", text: "text-amber-700" },
+          { label: "Processed", value: stats.processed, icon: <CheckCircle2 />, color: "border-l-gray-400", text: "text-gray-600" },
         ].map((s) => (
           <motion.div key={s.label} whileHover={{ y: -4, scale: 1.02 }}>
             <Card className={`border-l-4 ${s.color} rounded-2xl bg-white shadow-lg border-[#d9ead6]`}>
@@ -277,16 +276,14 @@ export function ScheduledMessages() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
-                    tab === t.key
-                      ? "bg-[#5d8044] text-white border-[#5d8044] shadow"
-                      : "bg-white text-[#556d4a] border-[#d9ead6] hover:bg-[#eff7ed]"
-                  }`}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${tab === t.key
+                    ? "bg-[#5d8044] text-white border-[#5d8044] shadow"
+                    : "bg-white text-[#556d4a] border-[#d9ead6] hover:bg-[#eff7ed]"
+                    }`}
                 >
                   {t.label}
-                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
-                    tab === t.key ? "bg-white/20" : "bg-[#eff7ec] text-[#5d8044]"
-                  }`}>
+                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${tab === t.key ? "bg-white/20" : "bg-[#eff7ec] text-[#5d8044]"
+                    }`}>
                     {t.count}
                   </span>
                 </button>
@@ -325,10 +322,10 @@ export function ScheduledMessages() {
                     </TableRow>
                   ) : filtered.map((m, i) => {
                     const status = getStatusInfo(m);
-                    const isDelBusy  = busy === m.id + "-del";
+                    const isDelBusy = busy === m.id + "-del";
                     const isSentBusy = busy === m.id + "-sent";
                     const isTestBusy = busy === m.id + "-test";
-                    const anyBusy    = !!(busy);
+                    const anyBusy = !!(busy);
                     return (
                       <motion.tr
                         key={m.id}
@@ -344,8 +341,8 @@ export function ScheduledMessages() {
                         <TableCell>
                           {m.batch_name
                             ? <Badge variant="outline" className="border-[#d9ead6] text-[#3d5a36] gap-1">
-                                <Layers className="h-3 w-3" />{m.batch_name}
-                              </Badge>
+                              <Layers className="h-3 w-3" />{m.batch_name}
+                            </Badge>
                             : <span className="text-xs text-[#7b8f6f] italic">All Batches</span>}
                         </TableCell>
                         <TableCell>
@@ -381,11 +378,10 @@ export function ScheduledMessages() {
                                 disabled={anyBusy}
                                 onClick={() => handleToggleTest(m.id, m.is_test)}
                                 title={m.is_test ? "Remove test flag" : "Mark as test"}
-                                className={`border gap-1 text-xs ${
-                                  m.is_test
-                                    ? "border-amber-400 text-amber-700 hover:bg-amber-50"
-                                    : "border-[#d9ead6] text-[#556d4a] hover:bg-[#eff7ed]"
-                                }`}
+                                className={`border gap-1 text-xs ${m.is_test
+                                  ? "border-amber-400 text-amber-700 hover:bg-amber-50"
+                                  : "border-[#d9ead6] text-[#556d4a] hover:bg-[#eff7ed]"
+                                  }`}
                               >
                                 {isTestBusy
                                   ? <RefreshCw className="h-3 w-3 animate-spin" />

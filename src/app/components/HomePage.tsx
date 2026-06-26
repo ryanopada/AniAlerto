@@ -12,9 +12,9 @@ export function HomePage() {
   ];
 
   const stats = [
-    { icon: MapPin, label: "50 Hectares", sub: "Total area" },
-    { icon: Users, label: "25 Workers", sub: "Dedicated team" },
-    { icon: Leaf, label: "12 Batches", sub: "Active crops" },
+    { icon: MapPin, label: "30 Hectares", sub: "Total area" },
+    { icon: Users, label: "30 Workers", sub: "Dedicated team" },
+    { icon: Leaf, label: "6 Batches", sub: "Active crops" },
     { icon: Calendar, label: "Year-Round", sub: "Operation" }
   ];
 

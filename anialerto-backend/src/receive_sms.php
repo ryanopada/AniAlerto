@@ -6,7 +6,7 @@ header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
-$conn = new mysqli("localhost", "root", "", "anialerto");
+$conn = new mysqli("localhost", "u268935662_anialerto123", "AniAlerto123", "u268935662_AniAlerto");
 if ($conn->connect_error) {
     echo json_encode(["error" => "Connection failed: " . $conn->connect_error]);
     http_response_code(500); exit;
@@ -201,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           ORDER BY created_at DESC
           LIMIT 1"
     );
-    $s->bind_param("ssssissss", $command, $delayReason, $helpCat, $helpSub, $worker_id, $cleanPhone, $alt, $key10);
+    $s->bind_param("ssssisss", $command, $delayReason, $helpCat, $helpSub, $worker_id, $cleanPhone, $alt, $key10);
     $s->execute(); $s->close();
 
     // ── Dispatch command ──────────────────────────────────────────────────────

@@ -13,10 +13,10 @@ interface Batch {
   id: string;
   name: string;
   location: string;
-  plantingDate: string; 
+  plantingDate: string;
   area: string;
-  variety: string;      
-  status: "Active" | "Harvested" | "Planning";
+  variety: string;
+  status: "Healthy" | "Pest-Infested" | "Heat-Stressed" | "Water-Logged" | "Delayed" | "Harvested";
   notes?: string;
 }
 
@@ -27,18 +27,18 @@ export function BatchManagement() {
   const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const [formData, setFormData] = useState({
     name: "",
     location: "",
     plantingDate: "",
     area: "",
     variety: "",
-    status: "Active" as Batch["status"],
+    status: "Healthy" as Batch["status"],
     notes: ""
   });
 
-  const API_URL = "http://localhost/anialerto-backend/src/batches.php";
+  const API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/batches.php";
 
   const fetchBatches = async () => {
     try {
@@ -50,13 +50,14 @@ export function BatchManagement() {
       if (Array.isArray(data)) {
         const mappedData = data.map((b: any) => ({
           id: b.id,
-          name: b.name,            
-          location: b.location,     
+          name: b.name,
+          location: b.location,
           plantingDate: b.planting_date,
-          area: b.area,        
-          variety: b.variety, 
-          status: b.status,         
-          notes: b.notes            
+          harvestDate: b.harvest_date,
+          area: b.area,
+          variety: b.variety,
+          status: b.status,
+          notes: b.notes
         }));
         setBatches(mappedData);
       }
@@ -69,17 +70,38 @@ export function BatchManagement() {
     fetchBatches();
   }, []);
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
-    const payload = { ...formData, id: editingBatch?.id };
-    const method  = editingBatch ? "PUT" : "POST";
+    const name = formData.name.trim();
+    const location = formData.location.trim();
+    const variety = formData.variety.trim();
+
+    if (!name || !location || !variety) {
+      setFormError("Name, Location, and Variety cannot be purely spaces.");
+      return;
+    }
+
+    if (formData.harvestDate) {
+      const pDate = new Date(formData.plantingDate);
+      const hDate = new Date(formData.harvestDate);
+      if (hDate < pDate) {
+        setFormError("Harvest Date cannot be earlier than Planting Date.");
+        return;
+      }
+    }
+
+    const payload = { ...formData, name, location, variety, id: editingBatch?.id };
+    const method = editingBatch ? "PUT" : "POST";
 
     try {
       const response = await fetch(API_URL, {
-        method:  method,
+        method: method,
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -88,10 +110,11 @@ export function BatchManagement() {
         setIsDialogOpen(false);
         fetchBatches();
       } else {
-        console.error("Server error:", result.message);
+        setFormError(result.message || result.error || "Server error.");
       }
     } catch (error) {
       console.error("Failed to save:", error);
+      setFormError("An unexpected error occurred.");
     }
   };
 
@@ -124,15 +147,15 @@ export function BatchManagement() {
   const filteredBatches = useMemo(() => {
     return batches.filter((batch) => {
       const matchesSearch = batch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            batch.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            batch.variety.toLowerCase().includes(searchQuery.toLowerCase());
+        batch.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        batch.variety.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSearch;
     });
   }, [batches, searchQuery]);
 
   const stats = useMemo(() => ({
     total: batches.length,
-    active: batches.filter(b => b.status === "Active").length,
+    active: batches.filter(b => b.status !== "Harvested").length,
     totalArea: calculateTotalArea()
   }), [batches]);
 
@@ -150,8 +173,9 @@ export function BatchManagement() {
         </div>
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
           <Button className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]" onClick={() => {
+            setFormError(null);
             setEditingBatch(null);
-            setFormData({ name: "", location: "", plantingDate: "", area: "", variety: "", status: "Active", notes: "" });
+            setFormData({ name: "", location: "", plantingDate: "", harvestDate: "", area: "", variety: "", status: "Healthy", notes: "" });
             setIsDialogOpen(true);
           }}>
             <Plus className="h-4 w-4 mr-2" />
@@ -162,46 +186,61 @@ export function BatchManagement() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="rounded-[1.5rem] border border-[#d9ead6] bg-[#f8fdf3] shadow-2xl shadow-[#a4c692]/20">
-            <DialogHeader>
-              <DialogTitle className="text-[#3d5a36]">{editingBatch ? "Edit Batch" : "Create Batch"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <DialogHeader>
+            <DialogTitle className="text-[#3d5a36]">{editingBatch ? "Edit Batch" : "Create Batch"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+            {formError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {formError}
+              </div>
+            )}
+            <div>
+              <Label>Batch Name</Label>
+              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Batch Name</Label>
-                <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+                <Label>Location</Label>
+                <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Location</Label>
-                  <Input value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} required />
-                </div>
-                <div>
-                  <Label>Area (ha)</Label>
-                  <Input value={formData.area} onChange={(e) => setFormData({...formData, area: e.target.value})} required />
-                </div>
+              <div>
+                <Label>Area (ha)</Label>
+                <Input value={formData.area} onChange={(e) => setFormData({ ...formData, area: e.target.value })} required />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Planting Date</Label>
-                <Input type="date" value={formData.plantingDate} onChange={(e) => setFormData({...formData, plantingDate: e.target.value})} required />
+                <Input type="date" value={formData.plantingDate} onChange={(e) => setFormData({ ...formData, plantingDate: e.target.value })} required />
               </div>
               <div>
-                <Label>Corn Variety</Label>
-                <Input value={formData.variety} onChange={(e) => setFormData({...formData, variety: e.target.value})} required />
+                <Label>Harvest Date (Optional)</Label>
+                <Input type="date" value={formData.harvestDate || ""} onChange={(e) => setFormData({ ...formData, harvestDate: e.target.value })} />
               </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <select className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})}>
-                  <option value="Active">Active</option>
+            </div>
+            <div>
+              <Label>Corn Variety</Label>
+              <Input value={formData.variety} onChange={(e) => setFormData({ ...formData, variety: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+                <select className="w-full border rounded-xl p-3 bg-white shadow-sm border-[#d9ead6]" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })}>
+                  <option value="Healthy">Healthy</option>
+                  <option value="Pest-Infested">Pest-Infested</option>
+                  <option value="Heat-Stressed">Heat-Stressed</option>
+                  <option value="Water-Logged">Water-Logged</option>
+                  <option value="Delayed">Delayed</option>
                   <option value="Harvested">Harvested</option>
-                  <option value="Planning">Planning</option>
                 </select>
-              </div>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button type="submit" className="w-full bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]">Save Batch</Button>
-              </motion.div>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button type="submit" className="w-full bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg shadow-[#5d8044]/20 border border-[#7a9b5c]">Save Batch</Button>
+            </motion.div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <motion.div
         className="grid grid-cols-1 md:grid-cols-3 gap-4"
@@ -262,25 +301,33 @@ export function BatchManagement() {
                       <TableCell className="text-[#556d4a]">{batch.location}</TableCell>
                       <TableCell className="text-[#556d4a]">{batch.plantingDate}</TableCell>
                       <TableCell className="text-[#556d4a]">{batch.variety}</TableCell>
-                      <TableCell>
-                        <Badge className={batch.status === "Active" ? "bg-[#e4fde1] text-[#5d8044]" : "bg-gray-100 text-gray-500"}>
-                          {batch.status}
-                        </Badge>
-                      </TableCell>
+                        <TableCell>
+                          <Badge className={
+                            batch.status === "Healthy" ? "bg-[#e4fde1] text-[#5d8044]" :
+                            batch.status === "Pest-Infested" ? "bg-red-100 text-red-700" :
+                            batch.status === "Heat-Stressed" ? "bg-orange-100 text-orange-700" :
+                            batch.status === "Water-Logged" ? "bg-blue-100 text-blue-700" :
+                            batch.status === "Delayed" ? "bg-yellow-100 text-yellow-700" :
+                            "bg-gray-100 text-gray-500"
+                          }>
+                            {batch.status}
+                          </Badge>
+                        </TableCell>
                       <TableCell className="text-right space-x-1">
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                           <Button variant="ghost" size="sm" onClick={() => {
-                             setEditingBatch(batch);
-                             setFormData({
-                               name: batch.name,
-                               location: batch.location,
-                               plantingDate: batch.plantingDate,
-                               area: batch.area,
-                               variety: batch.variety,
-                               status: batch.status,
-                               notes: batch.notes || ""
-                             });
-                             setIsDialogOpen(true);
+                            setFormError(null);
+                            setFormData({
+                              name: batch.name,
+                              location: batch.location,
+                              plantingDate: batch.plantingDate,
+                              harvestDate: batch.harvestDate || "",
+                              area: batch.area,
+                              variety: batch.variety,
+                              status: batch.status,
+                              notes: batch.notes || ""
+                            });
+                            setIsDialogOpen(true);
                           }}>
                             <Edit className="h-4 w-4 text-[#5d8044]" />
                           </Button>

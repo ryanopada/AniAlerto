@@ -2,7 +2,7 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 
-$conn = new mysqli("localhost", "root", "", "anialerto");
+$conn = new mysqli("localhost", "u268935662_anialerto123", "AniAlerto123", "u268935662_AniAlerto");
 
 $batch_count = $conn->query("SELECT COUNT(*) as total FROM farm_batches")->fetch_assoc()['total'];
 $worker_count = $conn->query("SELECT COUNT(*) as total FROM workers")->fetch_assoc()['total'];
@@ -15,6 +15,26 @@ $trends = [];
 $trend_res = $conn->query("SELECT DATE(created_at) as date, COUNT(*) as count FROM sms_logs GROUP BY DATE(created_at) ORDER BY date DESC LIMIT 7");
 while($row = $trend_res->fetch_assoc()) { $trends[] = $row; }
 
+$status_colors = [
+    "Healthy" => "#8acb88",
+    "Pest-Infested" => "#ef4444",
+    "Heat-Stressed" => "#f97316",
+    "Water-Logged" => "#3b82f6",
+    "Delayed" => "#eab308",
+    "Harvested" => "#a8a29e"
+];
+
+$batchStatus = [];
+$stat_res = $conn->query("SELECT status, COUNT(*) as cnt FROM farm_batches GROUP BY status");
+while($row = $stat_res->fetch_assoc()) {
+    $st = $row['status'];
+    $batchStatus[] = [
+        "name" => $st,
+        "value" => (int)$row['cnt'],
+        "color" => isset($status_colors[$st]) ? $status_colors[$st] : "#cccccc"
+    ];
+}
+
 echo json_encode([
     "counts" => [
         "batches" => $batch_count,
@@ -23,8 +43,6 @@ echo json_encode([
         "completion_rate" => $rate
     ],
     "trends" => array_reverse($trends),
-    "batchStatus" => [
-        ["name" => "Active", "value" => (int)$batch_count, "color" => "#8acb88"]
-    ]
+    "batchStatus" => $batchStatus
 ]);
 ?>

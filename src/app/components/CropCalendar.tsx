@@ -51,9 +51,13 @@ const categoryColors: Record<string, string> = {
 };
 
 const statusDot: Record<string, string> = {
-  sent: "bg-green-500",
-  today: "bg-yellow-500 animate-pulse",
   upcoming: "bg-gray-300",
+  today: "bg-yellow-400 animate-pulse",
+  pending: "bg-blue-400 animate-pulse",
+  sent: "bg-emerald-500",
+  completed: "bg-emerald-500",
+  delayed: "bg-amber-500",
+  "pest detected": "bg-red-500 animate-pulse shadow-[0_0_8px_red]",
 };
 
 export function CropCalendar() {
@@ -64,7 +68,7 @@ export function CropCalendar() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEventOpen, setIsEventOpen] = useState(false);
 
-  const API_URL = "http://localhost/anialerto-backend/src/crop_calendar.php";
+  const API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/crop_calendar.php";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -202,7 +206,6 @@ export function CropCalendar() {
                         <TableHead>Advisory</TableHead>
                         <TableHead className="w-[110px]">Category</TableHead>
                         <TableHead className="w-[100px]">Due Date</TableHead>
-                        <TableHead className="w-[80px]">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -222,14 +225,6 @@ export function CropCalendar() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs text-[#7b8f6f]">{formatDate(evt.due_date)}</TableCell>
-                          <TableCell>
-                            <span className="flex items-center gap-1.5">
-                              <span className={`h-2.5 w-2.5 rounded-full ${statusDot[evt.status]}`} />
-                              <span className={`text-xs font-medium ${evt.status === "sent" ? "text-green-700" : evt.status === "today" ? "text-yellow-700" : "text-gray-500"}`}>
-                                {evt.status === "sent" ? "Sent" : evt.status === "today" ? "Today" : "Upcoming"}
-                              </span>
-                            </span>
-                          </TableCell>
                         </motion.tr>
                       ))}
                     </TableBody>
@@ -327,11 +322,17 @@ export function CropCalendar() {
                     {selectedEvent.category}
                   </Badge>
                   <Badge className={
-                    selectedEvent.status === "sent" ? "bg-green-100 text-green-800" :
-                    selectedEvent.status === "today" ? "bg-yellow-100 text-yellow-800" :
+                    selectedEvent.status === "completed" || selectedEvent.status === "sent" ? "bg-emerald-100 text-emerald-800" :
+                    selectedEvent.status === "pest detected" ? "bg-red-100 text-red-800 border border-red-300 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                    selectedEvent.status === "delayed" ? "bg-amber-100 text-amber-800" :
+                    selectedEvent.status === "today" || selectedEvent.status === "pending" ? "bg-yellow-100 text-yellow-800" :
                     "bg-gray-100 text-gray-600"
                   }>
-                    {selectedEvent.status === "sent" ? "✅ Sent" : selectedEvent.status === "today" ? "⚡ Due Today" : "📅 Upcoming"}
+                    {selectedEvent.status === "completed" ? "✅ Completed" : 
+                     selectedEvent.status === "pest detected" ? "🚨 PEST DETECTED" :
+                     selectedEvent.status === "delayed" ? "⚠️ Delayed" :
+                     selectedEvent.status === "sent" ? "✅ Sent" :
+                     selectedEvent.status === "today" || selectedEvent.status === "pending" ? "⚡ Due Today" : "📅 Upcoming"}
                   </Badge>
                   <span className="text-sm text-[#7b8f6f]">{formatDate(selectedEvent.due_date)}</span>
                 </div>
@@ -348,9 +349,9 @@ export function CropCalendar() {
                       {selectedEvent.expected_responses.map((r) => (
                         <Badge key={r} variant="outline" className={
                           r === "DONE" ? "border-green-300 text-green-700 bg-green-50" :
-                          r === "DELAY" ? "border-yellow-300 text-yellow-700 bg-yellow-50" :
-                          r === "HELP" ? "border-red-300 text-red-700 bg-red-50" :
-                          "border-gray-300 text-gray-600"
+                            r === "DELAY" ? "border-yellow-300 text-yellow-700 bg-yellow-50" :
+                              r === "HELP" ? "border-red-300 text-red-700 bg-red-50" :
+                                "border-gray-300 text-gray-600"
                         }>{r}</Badge>
                       ))}
                     </div>

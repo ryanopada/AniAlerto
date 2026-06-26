@@ -1,4 +1,6 @@
 <?php
+require_once 'Response.php';
+require_once 'Helpers.php';
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST, GET, DELETE, OPTIONS");
@@ -6,7 +8,7 @@ header("Access-Control-Allow-Headers: Content-Type");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
-$conn = new mysqli("localhost", "root", "", "anialerto");
+$conn = new mysqli("localhost", "u268935662_anialerto123", "AniAlerto123", "u268935662_AniAlerto");
 if ($conn->connect_error) {
     echo json_encode(["status" => "error", "message" => "DB connection failed"]);
     exit;
@@ -95,12 +97,19 @@ if ($method == 'POST') {
         $daysAfter = intval($data['days_after_planting']);
     }
 
-    $name        = $data['name']         ?? '';
-    $category    = $data['category']     ?? 'General';
-    $message     = $data['message']      ?? '';
-    $triggerType = $data['trigger_type'] ?? 'days_after_planting';
+    $name        = sanitize_string($data['name'] ?? '');
+    $category    = sanitize_string($data['category'] ?? 'General');
+    $message     = sanitize_string($data['message'] ?? '');
+    $triggerType = sanitize_string($data['trigger_type'] ?? 'days_after_planting');
     $active      = isset($data['active']) ? intval($data['active']) : 1;
     $isUpdate    = isset($data['id']) && $data['id'];
+
+    if (empty($name) || empty($message)) {
+        Response::error("Template Name and Message cannot be empty.", 400);
+    }
+    if ($daysAfter < 0) {
+        Response::error("Trigger days must be a positive number.", 400);
+    }
 
     if ($isUpdate) {
         $stmt = $conn->prepare(

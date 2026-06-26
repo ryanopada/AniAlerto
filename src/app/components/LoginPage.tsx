@@ -23,24 +23,38 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError("");
     setIsLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 700));
-
     if (!username || !password) {
       setError("Please enter both username and password.");
       setIsLoading(false);
       return;
     }
 
-    if (username === "admin" && password === "@dmin123") {
-      // flushSync ensures auth state is committed BEFORE navigate() fires,
-      // preventing the protected route guard from bouncing back to /admin/login.
-      flushSync(() => {
-        localStorage.setItem("anialerto_auth", "true");
-        onLogin();
+    try {
+      const response = await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/admin_login.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
-      navigate("/admin/dashboard", { replace: true });
-    } else {
-      setError("Invalid username or password. Please try again.");
+
+      const data = await response.json();
+
+      if (response.ok && data.status === "success") {
+        // flushSync ensures auth state is committed BEFORE navigate() fires,
+        // preventing the protected route guard from bouncing back to /admin/login.
+        flushSync(() => {
+          localStorage.setItem("anialerto_auth", "true");
+          if (data.user) {
+            localStorage.setItem("anialerto_user", JSON.stringify(data.user));
+          }
+          onLogin();
+        });
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        setError(data.message || "Invalid username or password. Please try again.");
+      }
+    } catch (err) {
+      setError("Network error. Please make sure the server is running.");
+    } finally {
       setIsLoading(false);
     }
   };

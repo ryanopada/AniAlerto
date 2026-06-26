@@ -14,6 +14,7 @@ import { WorkerManagement } from "./components/WorkerManagement";
 import { MessageConfiguration } from "./components/MessageConfiguration";
 import { SMSMonitoring } from "./components/SMSMonitoring";
 import { Reports } from "./components/Reports";
+import { PestManagement } from "./components/PestManagement";
 
 
 interface Alert {
@@ -51,7 +52,7 @@ export default function App() {
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch('http://localhost/anialerto-backend/src/get_alerts.php');
+      const res = await fetch((import.meta.env.VITE_API_URL || 'https://lightpink-cattle-667968.hostingersite.com') + '/api/get_alerts.php');
       if (!res.ok) throw new Error(`Alerts failed: ${res.status}`);
       const data = await res.json();
       setAlerts(Array.isArray(data.alerts) ? data.alerts : []);
@@ -128,7 +129,8 @@ export default function App() {
           <Route path="workers" element={<WorkerManagement />} />
           <Route path="messages" element={<MessageConfiguration />} />
           <Route path="monitoring" element={<SMSMonitoring />} />
-          <Route path="reports"    element={<Reports />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="pest-control" element={<PestManagement />} />
           <Route path="responses" element={<Navigate to="../monitoring" replace />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

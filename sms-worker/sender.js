@@ -29,6 +29,8 @@ async function processBatch(batchSize, delayMs) {
     [batchSize]
   );
 
+  let successCount = 0;
+
   for (const sms of rows) {
     let status      = 'Failed';
     let providerRef = null;
@@ -40,6 +42,7 @@ async function processBatch(batchSize, delayMs) {
       status      = 'Sent';
       providerRef = 'GSM-' + Date.now();
       rawResponse = 'OK';
+      successCount++;
       console.log(`[Sender] ✅ Sent to ${sms.phone}`);
     } catch (err) {
       rawResponse = err.message;
@@ -91,7 +94,7 @@ async function processBatch(batchSize, delayMs) {
     await sleep(delayMs);
   }
 
-  return rows.length;
+  return successCount;
 }
 
 module.exports = { setDB, processBatch };

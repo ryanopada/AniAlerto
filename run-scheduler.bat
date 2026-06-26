@@ -11,7 +11,7 @@ echo  Use this only if the worker is stopped and you need to
 echo  force-queue overdue messages immediately.
 echo ============================================================
 echo.
-curl -s "http://localhost/anialerto-backend/src/run_scheduler.php"
+curl -s "https://lightpink-cattle-667968.hostingersite.com/api/run_scheduler.php"
 echo.
 echo Scheduler manually triggered at %date% %time%
 pause

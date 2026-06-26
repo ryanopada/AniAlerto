@@ -1,4 +1,6 @@
 <?php
+require_once 'Response.php';
+require_once 'Helpers.php';
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS");
@@ -9,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-$conn = new mysqli("localhost", "root", "", "anialerto");
+$conn = new mysqli("localhost", "u268935662_anialerto123", "AniAlerto123", "u268935662_AniAlerto");
 
 if ($conn->connect_error) {
     echo json_encode(["status" => "error", "message" => "Connection failed"]);
@@ -39,18 +41,38 @@ if ($method == 'GET') {
     $data = json_decode(file_get_contents("php://input"), true);
 
     if (!empty($data)) {
+        $name = sanitize_string($data['name']);
+        $location = sanitize_string($data['location']);
+        $variety = sanitize_string($data['variety']);
+        $area = sanitize_string($data['area']);
+        $notes = sanitize_string($data['notes'] ?? '');
+        $harvestDate = !empty($data['harvestDate']) ? $data['harvestDate'] : null;
+
+        if (empty($name) || empty($location) || empty($variety)) {
+            Response::error("Name, Location, and Variety are required.", 400);
+        }
+
+        validate_date($data['plantingDate']);
+        if ($harvestDate) {
+            validate_date($harvestDate);
+            if (strtotime($harvestDate) < strtotime($data['plantingDate'])) {
+                Response::error("Harvest Date cannot be earlier than Planting Date.", 400);
+            }
+        }
+
         $stmt = $conn->prepare(
-            "INSERT INTO farm_batches (name, location, planting_date, area, variety, status, notes)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO farm_batches (name, location, planting_date, harvest_date, area, variety, status, notes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param("sssssss",
-            $data['name'],
-            $data['location'],
+        $stmt->bind_param("ssssssss",
+            $name,
+            $location,
             $data['plantingDate'],
-            $data['area'],
-            $data['variety'],
+            $harvestDate,
+            $area,
+            $variety,
             $data['status'],
-            $data['notes']
+            $notes
         );
 
         if ($stmt->execute()) {
@@ -75,6 +97,12 @@ if ($method == 'GET') {
                             "category" => "Harrowing",
                             "days_offset" => -7,
                             "msg" => "Harrowing for {batch_name} is coming up. Please prepare the fields."
+                        ],
+                        [
+                            "name" => "Plant Date Reminder",
+                            "category" => "Plant Date / Planting",
+                            "days_offset" => 0,
+                            "msg" => "Today is the Plant Date for {batch_name}. Ensure all seeds and manpower are ready.\n\nNgayon ang araw ng pagtatanim para sa {batch_name}. Tiyaking handa na ang mga buto at tauhan."
                         ]
                     ];
 
@@ -117,19 +145,39 @@ if ($method == 'GET') {
         exit();
     }
 
+    $name = sanitize_string($data['name']);
+    $location = sanitize_string($data['location']);
+    $variety = sanitize_string($data['variety']);
+    $area = sanitize_string($data['area']);
+    $notes = sanitize_string($data['notes'] ?? '');
+    $harvestDate = !empty($data['harvestDate']) ? $data['harvestDate'] : null;
+
+    if (empty($name) || empty($location) || empty($variety)) {
+        Response::error("Name, Location, and Variety are required.", 400);
+    }
+
+    validate_date($data['plantingDate']);
+    if ($harvestDate) {
+        validate_date($harvestDate);
+        if (strtotime($harvestDate) < strtotime($data['plantingDate'])) {
+            Response::error("Harvest Date cannot be earlier than Planting Date.", 400);
+        }
+    }
+
     $stmt = $conn->prepare(
-        "UPDATE farm_batches
-         SET name=?, location=?, planting_date=?, area=?, variety=?, status=?, notes=?
+        "UPDATE farm_batches 
+         SET name=?, location=?, planting_date=?, harvest_date=?, area=?, variety=?, status=?, notes=?, updated_at=NOW() 
          WHERE id=?"
     );
-    $stmt->bind_param("sssssssi",
-        $data['name'],
-        $data['location'],
+    $stmt->bind_param("ssssssssi",
+        $name,
+        $location,
         $data['plantingDate'],
-        $data['area'],
-        $data['variety'],
+        $harvestDate,
+        $area,
+        $variety,
         $data['status'],
-        $data['notes'],
+        $notes,
         $data['id']
     );
 

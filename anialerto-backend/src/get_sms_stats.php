@@ -3,11 +3,11 @@ header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=UTF-8');
 error_reporting(0);
 
-$conn = new mysqli('localhost', 'root', '', 'anialerto');
+$conn = new mysqli('localhost', 'u268935662_anialerto123', 'AniAlerto123', 'u268935662_AniAlerto');
 if ($conn->connect_error) { echo json_encode(['error' => $conn->connect_error]); exit; }
 
 // ── Build the same WHERE/HAVING filter that get_sms_logs.php uses ─────────────
-$where  = "direction = 'Outbound' AND sent_at IS NOT NULL";
+$where  = "direction = 'Outbound' AND sent_at IS NOT NULL AND message NOT LIKE 'Reminder!%'";
 $params = [];
 $types  = '';
 
@@ -44,7 +44,8 @@ if ($search !== '') {
 $sql = "
     SELECT
         COUNT(*)                                                                AS total,
-        SUM(CASE WHEN UPPER(TRIM(response_text)) = 'DONE'  THEN 1 ELSE 0 END) AS done_c,
+        SUM(CASE WHEN UPPER(TRIM(response_text)) = 'DONE' AND HOUR(received_at) < 17 THEN 1 ELSE 0 END) AS done_c,
+        SUM(CASE WHEN UPPER(TRIM(response_text)) = 'DONE' AND HOUR(received_at) >= 17 THEN 1 ELSE 0 END) AS late_finish_c,
         SUM(CASE WHEN UPPER(TRIM(response_text)) = 'DELAY' THEN 1 ELSE 0 END) AS delay_c,
         SUM(CASE WHEN UPPER(TRIM(response_text)) = 'HELP'  THEN 1 ELSE 0 END) AS help_c,
         SUM(CASE WHEN UPPER(TRIM(response_text)) = 'PEST'  THEN 1 ELSE 0 END) AS pest_c,
@@ -61,13 +62,14 @@ $stmt->execute();
 $row = $stmt->get_result()->fetch_assoc();
 
 echo json_encode([
-    'total'   => (int)($row['total']     ?? 0),
-    'done'    => (int)($row['done_c']    ?? 0),
-    'delay'   => (int)($row['delay_c']  ?? 0),
-    'help'    => (int)($row['help_c']   ?? 0),
-    'pest'    => (int)($row['pest_c']   ?? 0),
-    'pending' => (int)($row['pending_c'] ?? 0),
-    'filter'  => $dateFilter,
+    'total'       => (int)($row['total']         ?? 0),
+    'done'        => (int)($row['done_c']        ?? 0),
+    'late_finish' => (int)($row['late_finish_c'] ?? 0),
+    'delay'       => (int)($row['delay_c']       ?? 0),
+    'help'        => (int)($row['help_c']        ?? 0),
+    'pest'        => (int)($row['pest_c']        ?? 0),
+    'pending'     => (int)($row['pending_c']     ?? 0),
+    'filter'      => $dateFilter,
     'ts'      => time(),
 ]);
 $conn->close();

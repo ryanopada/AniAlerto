@@ -35,7 +35,7 @@ export function InboundMessages() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCommand, setFilterCommand] = useState("All");
 
-  const API_URL = "http://localhost/anialerto-backend/src/get_inbound_messages.php";
+  const API_URL = (import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/get_inbound_messages.php";
 
   const fetchMessages = async () => {
     setLoading(true);

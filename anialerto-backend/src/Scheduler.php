@@ -5,7 +5,7 @@ $database = new Database();
 $db = $database->getConnection();
 
 try {
-    $batchQuery = "SELECT id, name, planting_date FROM farm_batches WHERE status = 'Active'";
+    $batchQuery = "SELECT id, name, planting_date FROM farm_batches WHERE status != 'Harvested'";
     $stmt = $db->prepare($batchQuery);
     $stmt->execute();
     $activeBatches = $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -18,11 +18,7 @@ async function main() {
   // Step 1: Connect modem (auto-reconnect built in)
   connectModem();
 
-  // Step 2: Wait for modem to power up
-  await new Promise(r => setTimeout(r, 3000));
-
-  // Step 3: Initialize modem (text mode, storage, receive mode)
-  await initModem();
+  // Step 2: Modem initialization is now handled automatically inside connectModem()
 
   // Step 4: Connect to MySQL
   let db;
@@ -32,10 +28,18 @@ async function main() {
       user:     process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
+      timezone: '+08:00',
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
     });
+
+    // Force Philippine time for all connections in the pool
+    // so that NOW() correctly returns +08:00 instead of UTC
+    db.on('connection', function (connection) {
+      connection.query("SET time_zone = '+08:00'");
+    });
+
     console.log('[DB] ✅ Connected to MySQL (Pool)');
   } catch (err) {
     console.error('[DB] ❌ Cannot connect to MySQL:', err.message);
@@ -141,7 +145,7 @@ async function main() {
   // which can cause duplicate sms_logs rows when the modem is slow.
   async function senderLoop() {
     if (!getConnectionStatus()) {
-      console.log('[Sender] ⏸ Modem not connected, skipping...');
+      // console.log('[Sender] ⏸ Modem not connected, skipping...');
     } else {
       try {
         const count = await processBatch(BATCH_SIZE, SEND_DELAY);
@@ -194,6 +198,41 @@ async function main() {
   await runScheduler();
   setTimeout(schedulerLoop, SCHED_MS);
   console.log('[Scheduler] ✅ Continuous scheduler active (60s interval) — no manual trigger needed');
+
+  // ── SYSTEM COMMAND LOOP ──────────────────────────────────────────────────
+  // Checks every 10 seconds for remote commands inserted via the cloud API
+  // (e.g., Restart Worker button clicked on Hostinger).
+  const CMD_POLL_MS = 10_000;
+  async function systemCommandLoop() {
+    try {
+      // Ensure the table exists in case the backend hasn't run the script yet
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS system_commands (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            command VARCHAR(255) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      const [rows] = await db.execute("SELECT id, command FROM system_commands ORDER BY id ASC LIMIT 1");
+      if (rows.length > 0) {
+        const cmdRow = rows[0];
+        if (cmdRow.command === 'RESTART_WORKER') {
+          console.log(`[Worker] 🔄 Remote RESTART command received! Acknowledging and restarting...`);
+          await db.execute("DELETE FROM system_commands WHERE id = ?", [cmdRow.id]);
+          process.exit(0); // PM2 will automatically restart it
+        } else {
+          // Unknown command, just delete to prevent loop
+          await db.execute("DELETE FROM system_commands WHERE id = ?", [cmdRow.id]);
+        }
+      }
+    } catch (err) {
+      console.error('[SystemCommand] Error checking commands:', err.message);
+    }
+    setTimeout(systemCommandLoop, CMD_POLL_MS);
+  }
+  setTimeout(systemCommandLoop, CMD_POLL_MS);
+  console.log('[Worker] ✅ Remote command listener active');
 }
 
 main().catch(err => {

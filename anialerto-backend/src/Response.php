@@ -9,8 +9,10 @@ final class Response
         exit;
     }
 
-    public static function error(string $message, int $status = 400, array $extra = []): void
+    public static function error(string $message, int $status = 200, array $extra = []): void
     {
-        self::json(array_merge(['error' => $message], $extra), $status);
+        // Use HTTP 200 for errors to prevent shared hosting providers (like Hostinger)
+        // from intercepting 400/422 status codes and injecting HTML error pages.
+        self::json(array_merge(['status' => 'error', 'message' => $message, 'error' => $message], $extra), $status);
     }
 }

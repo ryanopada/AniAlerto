@@ -6,7 +6,7 @@ header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
-$conn = new mysqli('localhost', 'root', '', 'anialerto');
+$conn = new mysqli('localhost', 'u268935662_anialerto123', 'AniAlerto123', 'u268935662_AniAlerto');
 if ($conn->connect_error) {
     echo json_encode(['status' => 'error', 'message' => 'DB connection failed']);
     exit;

@@ -12,9 +12,9 @@ export function FarmTourPage() {
   } as const;
 
   const farmStats = [
-    { icon: MapPin, title: "50 Hectares", text: "Total farm area" },
-    { icon: Users, title: "25 Workers", text: "Dedicated team" },
-    { icon: Leaf, title: "12 Batches", text: "Active crops" },
+    { icon: MapPin, title: "30 Hectares", text: "Total farm area" },
+    { icon: Users, title: "30 Workers", text: "Dedicated team" },
+    { icon: Leaf, title: "6 Batches", text: "Active crops" },
     { icon: Calendar, title: "Year-Round", text: "Continuous operation" },
   ];
 
@@ -205,7 +205,7 @@ export function FarmTourPage() {
         <div className="container mx-auto px-6 sm:px-8 lg:px-12">
           <div className="max-w-4xl mx-auto">
             <motion.h2 className="text-3xl font-bold mb-8 text-center text-[#3d5a36]" {...fadeUp}>Find Us</motion.h2>
-            
+
             <div className="grid md:grid-cols-2 gap-8 mb-10">
               <motion.div className="rounded-[1.75rem] border border-[#d9ead6] bg-white p-8 shadow-2xl shadow-[#a4c692]/20" {...fadeUp} whileHover={{ y: -6, scale: 1.01 }}>
                 <div className="flex items-start gap-4">
@@ -251,7 +251,7 @@ export function FarmTourPage() {
             {/* Embedded Map */}
             <motion.div className="rounded-[1.75rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 border border-[#d9ead6]" {...fadeUp}>
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d61601.89847771334!2d120.40537967910156!3d16.02486699999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3393e95ead03ca29%3A0xbd0f89bea6e8e91d!2sMapandan%2C%20Pangasinan!5e0!3m2!1sen!2sph!4v1234567890123"
+                src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d3834.6283677058473!2d120.45795507446472!3d16.03284998464136!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMTbCsDAxJzU4LjMiTiAxMjDCsDI3JzM3LjkiRQ!5e0!3m2!1sen!2sph!4v1780046604375!5m2!1sen!2sph"
                 width="100%"
                 height="450"
                 style={{ border: 0 }}

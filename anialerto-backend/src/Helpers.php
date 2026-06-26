@@ -32,3 +32,25 @@ function normalize_phone(string $phone): string
     }
     return $phone;
 }
+
+function sanitize_string($string): string
+{
+    if ($string === null) return '';
+    return htmlspecialchars(strip_tags(trim($string)), ENT_QUOTES, 'UTF-8');
+}
+
+function validate_phone(string $phone): void
+{
+    $normalized = normalize_phone($phone);
+    if (!preg_match('/^\+639\d{9}$/', $normalized)) {
+        Response::error("Invalid phone number format. Must be a valid Philippine mobile number (e.g., 09123456789 or +639123456789).", 422);
+    }
+}
+
+function validate_date(string $date): void
+{
+    $d = DateTime::createFromFormat('Y-m-d', $date);
+    if (!$d || $d->format('Y-m-d') !== $date) {
+        Response::error("Invalid date format. Use YYYY-MM-DD.", 422);
+    }
+}

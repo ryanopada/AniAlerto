@@ -37,6 +37,17 @@ try {
 
         // Bulk mark all as read
         if (!empty($input['mark_all'])) {
+            // Find all workers tied to unread UNRESPONSIVE alerts
+            $stmt = $db->query("SELECT DISTINCT worker_id FROM alerts WHERE type='UNRESPONSIVE' AND is_read=0 AND worker_id IS NOT NULL");
+            $unresponsiveWorkers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($unresponsiveWorkers)) {
+                $placeholders = implode(',', array_fill(0, count($unresponsiveWorkers), '?'));
+                $db->prepare("UPDATE workers SET unresponsive=0, missed_response_count=0 WHERE id IN ($placeholders)")->execute($unresponsiveWorkers);
+                $db->prepare("UPDATE escalation_tracking SET status='Resolved' WHERE worker_id IN ($placeholders)")->execute($unresponsiveWorkers);
+                $db->prepare("DELETE FROM sms_queue WHERE status='Queued' AND worker_id IN ($placeholders)")->execute($unresponsiveWorkers);
+            }
+
             $db->exec("UPDATE alerts SET is_read=1 WHERE is_read=0");
             echo json_encode(['success' => true, 'action' => 'mark_all']);
             exit;
@@ -44,6 +55,17 @@ try {
 
         // Single alert resolve
         if (!empty($input['id'])) {
+            $stmt = $db->prepare("SELECT type, worker_id FROM alerts WHERE id=:id AND is_read=0");
+            $stmt->execute([':id' => $input['id']]);
+            $alert = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($alert && $alert['type'] === 'UNRESPONSIVE' && !empty($alert['worker_id'])) {
+                $wid = $alert['worker_id'];
+                $db->prepare("UPDATE workers SET unresponsive=0, missed_response_count=0 WHERE id=?")->execute([$wid]);
+                $db->prepare("UPDATE escalation_tracking SET status='Resolved' WHERE worker_id=?")->execute([$wid]);
+                $db->prepare("DELETE FROM sms_queue WHERE status='Queued' AND worker_id=?")->execute([$wid]);
+            }
+
             $db->prepare("UPDATE alerts SET is_read=1 WHERE id=:id")
                ->execute([':id' => $input['id']]);
             // Return updated count so the bell updates instantly

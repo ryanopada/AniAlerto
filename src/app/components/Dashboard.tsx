@@ -17,11 +17,11 @@ interface DashboardProps {
 }
 
 export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) {
-  const [dbStats,          setDbStats]          = useState<any>(null);
-  const [loading,          setLoading]          = useState(true);
+  const [dbStats, setDbStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [workerRestarting, setWorkerRestarting] = useState(false);
-  const [workerRestartResult,  setWorkerRestartResult]  = useState<{ type: "success"|"error"; message: string; details?: string[] }|null>(null);
-  const [localAlerts,      setLocalAlerts]      = useState<Alert[]>(propAlerts);
+  const [workerRestartResult, setWorkerRestartResult] = useState<{ type: "success" | "error"; message: string; details?: string[] } | null>(null);
+  const [localAlerts, setLocalAlerts] = useState<Alert[]>(propAlerts);
 
   // Sync prop alerts into local state
   useEffect(() => { setLocalAlerts(propAlerts); }, [propAlerts]);
@@ -29,7 +29,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
   // Fetch dashboard stats
   const fetchStats = useCallback(async () => {
     try {
-      const r = await fetch("http://localhost/anialerto-backend/src/dashboard_stats.php");
+      const r = await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/dashboard_stats.php");
       setDbStats(await r.json());
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -38,7 +38,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
   // Fetch alerts
   const fetchAlerts = useCallback(async () => {
     try {
-      const r = await fetch("http://localhost/anialerto-backend/src/get_alerts.php");
+      const r = await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/get_alerts.php");
       const d = await r.json();
       if (d.alerts) setLocalAlerts(d.alerts);
     } catch (e) { console.error(e); }
@@ -57,10 +57,10 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
   const markAlertRead = async (id: number) => {
     setLocalAlerts(prev => prev.filter(a => a.id !== id));  // optimistic
     try {
-      const res  = await fetch("http://localhost/anialerto-backend/src/get_alerts.php", {
-        method:  "POST",
+      const res = await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/get_alerts.php", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ id }),
+        body: JSON.stringify({ id }),
       });
       const data = await res.json();
       onAlertsRead?.(data.unread_count);
@@ -71,10 +71,10 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
   const clearAllAlerts = async () => {
     setLocalAlerts([]);
     try {
-      await fetch("http://localhost/anialerto-backend/src/get_alerts.php", {
-        method:  "POST",
+      await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/get_alerts.php", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ mark_all: true }),
+        body: JSON.stringify({ mark_all: true }),
       });
       onAlertsRead?.(0);
     } catch (e) { console.error(e); }
@@ -83,7 +83,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
   const handleRestartWorker = async () => {
     setWorkerRestarting(true); setWorkerRestartResult(null);
     try {
-      const res  = await fetch("http://localhost/anialerto-backend/src/restart_worker.php", { method: "POST" });
+      const res = await fetch((import.meta.env.VITE_API_URL || "https://lightpink-cattle-667968.hostingersite.com") + "/api/restart_worker.php", { method: "POST" });
       const data = await res.json();
       if (data.status === "success") {
         setWorkerRestartResult({ type: "success", message: data.message, details: data.data?.details || [] });
@@ -100,10 +100,10 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
   };
 
   const stats = dbStats ? {
-    batches:          dbStats.counts.batches,
-    workers:          dbStats.counts.workers,
-    messages_today:   dbStats.counts.messages_today,
-    completion_rate:  dbStats.counts.completion_rate,
+    batches: dbStats.counts.batches,
+    workers: dbStats.counts.workers,
+    messages_today: dbStats.counts.messages_today,
+    completion_rate: dbStats.counts.completion_rate,
   } : { batches: 0, workers: 0, messages_today: 0, completion_rate: 0 };
 
   // API already returns only is_read=0 items — show everything returned
@@ -123,7 +123,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
             <Button onClick={handleRestartWorker} disabled={workerRestarting}
               className="bg-[#5d8044] hover:bg-[#4a6b36] text-white shadow-lg border border-[#7a9b5c]">
-              {workerRestarting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Restarting...</> : <><RefreshCw className="h-4 w-4 mr-2"/>Restart SMS Service</>}
+              {workerRestarting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Restarting...</> : <><RefreshCw className="h-4 w-4 mr-2" />Restart SMS Service</>}
             </Button>
           </motion.div>
           <motion.div className="bg-[#5d8044]/10 text-[#5d8044] px-4 py-2 rounded-full text-sm font-medium border border-[#5d8044]/20"
@@ -142,7 +142,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    {workerRestartResult.type === "success" ? <CheckCircle className="h-5 w-5 text-green-600 mt-0.5"/> : <AlertCircle className="h-5 w-5 text-red-600 mt-0.5"/>}
+                    {workerRestartResult.type === "success" ? <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" /> : <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />}
                     <div>
                       <p className={`font-medium text-sm ${workerRestartResult.type === "success" ? "text-green-800" : "text-red-800"}`}>{workerRestartResult.message}</p>
                       {workerRestartResult.details && workerRestartResult.details.length > 0 && (
@@ -150,7 +150,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                       )}
                     </div>
                   </div>
-                  <button onClick={() => setWorkerRestartResult(null)} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4"/></button>
+                  <button onClick={() => setWorkerRestartResult(null)} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
                 </div>
               </CardContent>
             </Card>
@@ -158,12 +158,15 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
         )}
       </AnimatePresence>
 
+      {/* ── WEATHER ALERTS / DSS DECISION BOARD ─────────────────────────────── */}
+      
+
       {/* ── CHECKLIST: Agricultural Advisories ───────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
         <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
           <CardHeader className="pb-2 bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
             <CardTitle className="text-lg flex items-center gap-2 text-[#3d5a36]">
-              <Bell className="h-5 w-5 text-[#5d8044]"/>
+              <Bell className="h-5 w-5 text-[#5d8044]" />
               Agricultural Advisories Checklist
               {activeAlerts.length > 0 && (
                 <span className="ml-2 text-xs bg-red-500 text-white rounded-full px-2 py-0.5 font-bold">{activeAlerts.length} active</span>
@@ -184,7 +187,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
               {activeAlerts.length === 0 ? (
                 <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   className="flex flex-col items-center py-8 text-[#7b8f6f] gap-2">
-                  <CheckCircle className="h-10 w-10 text-[#5d8044] opacity-50"/>
+                  <CheckCircle className="h-10 w-10 text-[#5d8044] opacity-50" />
                   <p className="font-medium">All caught up! / Wala nang alerto.</p>
                   <p className="text-xs">No unread agricultural advisories.</p>
                 </motion.div>
@@ -205,35 +208,31 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 40, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
                         transition={{ duration: 0.35, delay: index * 0.05 }}
-                        className={`flex items-start gap-3 p-3 mb-2 rounded-[1rem] border transition-colors group ${
-                          hasDone
-                            ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-400'
-                            : 'bg-amber-50 border-amber-200 hover:border-amber-400'
-                        }`}
+                        className={`flex items-start gap-3 p-3 mb-2 rounded-[1rem] border transition-colors group ${hasDone
+                          ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-400'
+                          : 'bg-amber-50 border-amber-200 hover:border-amber-400'
+                          }`}
                       >
                         {/* Checkbox */}
                         <button
                           onClick={() => markAlertRead(alert.id)}
                           title="Mark as handled / resolved"
-                          className={`flex-shrink-0 mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            hasDone
-                              ? 'border-emerald-500 hover:bg-emerald-500'
-                              : 'border-amber-500 hover:bg-amber-500'
-                          }`}
+                          className={`flex-shrink-0 mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${hasDone
+                            ? 'border-emerald-500 hover:bg-emerald-500'
+                            : 'border-amber-500 hover:bg-amber-500'
+                            }`}
                         >
-                          <CheckCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 text-white transition-opacity"/>
+                          <CheckCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 text-white transition-opacity" />
                         </button>
 
                         {/* Dot */}
-                        <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full mt-1.5 ${
-                          hasDone ? 'bg-emerald-500' : 'bg-yellow-400'
-                        }`}/>
+                        <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full mt-1.5 ${hasDone ? 'bg-emerald-500' : 'bg-yellow-400'
+                          }`} />
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <span className={`text-xs font-bold uppercase mr-2 ${
-                            hasDone ? 'text-emerald-700' : 'text-yellow-700'
-                          }`}>
+                          <span className={`text-xs font-bold uppercase mr-2 ${hasDone ? 'text-emerald-700' : 'text-yellow-700'
+                            }`}>
                             {hasDone ? 'DELAY ✓ DONE' : 'DELAY'}
                           </span>
                           <span className="text-sm text-[#3d5a36]">{msgEN}</span>
@@ -247,9 +246,8 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                               <span className="text-sm text-amber-900">{alert.delay_reason}</span>
                             </div>
                           )}
-                          <p className={`text-[10px] mt-1 font-medium ${
-                            hasDone ? 'text-emerald-600' : 'text-amber-600'
-                          }`}>
+                          <p className={`text-[10px] mt-1 font-medium ${hasDone ? 'text-emerald-600' : 'text-amber-600'
+                            }`}>
                             {hasDone
                               ? 'Worker replied DONE — Check to mark as handled · I-check upang markahan bilang naayos'
                               : 'Admin must check to mark as handled · Kailangang i-check ng admin upang alisin'}
@@ -262,11 +260,10 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                             {new Date(alert.created_at).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                           <button onClick={() => markAlertRead(alert.id)}
-                            className={`opacity-0 group-hover:opacity-100 transition-opacity ${
-                              hasDone ? 'text-emerald-500 hover:text-emerald-700' : 'text-amber-500 hover:text-amber-700'
-                            }`}
+                            className={`opacity-0 group-hover:opacity-100 transition-opacity ${hasDone ? 'text-emerald-500 hover:text-emerald-700' : 'text-amber-500 hover:text-amber-700'
+                              }`}
                             title="Dismiss">
-                            <X className="h-3.5 w-3.5"/>
+                            <X className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </motion.div>
@@ -290,11 +287,11 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                         className="flex-shrink-0 mt-0.5 h-5 w-5 rounded border-2 border-[#5d8044] flex items-center justify-center
                                    hover:bg-[#5d8044] hover:text-white transition-colors group-hover:border-[#3d5a36]"
                       >
-                        <CheckCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 text-white transition-opacity"/>
+                        <CheckCircle className="h-3 w-3 opacity-0 group-hover:opacity-100 text-white transition-opacity" />
                       </button>
 
                       {/* Dot */}
-                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500 mt-1.5"/>
+                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500 mt-1.5" />
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
@@ -315,7 +312,7 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
                         <button onClick={() => markAlertRead(alert.id)}
                           className="text-[#5d8044] hover:text-[#3d5a36] opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Dismiss">
-                          <X className="h-3.5 w-3.5"/>
+                          <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </motion.div>
@@ -331,13 +328,13 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
       <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
         {loading ? (
-          <div className="col-span-full flex justify-center p-8"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8"/></div>
+          <div className="col-span-full flex justify-center p-8"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
         ) : (
           <>
-            <StatCard title="Active Farm Batches"  value={stats.batches}           icon={<Layers/>}       color="border-l-[#5d8044]"  textColor="text-[#3d5a36]"/>
-            <StatCard title="Registered Workers"   value={stats.workers}           icon={<Users/>}        color="border-l-[#5d8044]"  textColor="text-[#5d8044]"/>
-            <StatCard title="Total Logs Today"     value={stats.messages_today}    icon={<MessageSquare/>} color="border-l-[#8acb88]" textColor="text-[#8acb88]"/>
-            <StatCard title="Completion Rate"      value={`${stats.completion_rate}%`} icon={<CheckCircle/>} color="border-l-[#ffbf46]" textColor="text-[#ffbf46]"/>
+            <StatCard title="Active Farm Batches" value={stats.batches} icon={<Layers />} color="border-l-[#5d8044]" textColor="text-[#3d5a36]" />
+            <StatCard title="Registered Workers" value={stats.workers} icon={<Users />} color="border-l-[#5d8044]" textColor="text-[#5d8044]" />
+            <StatCard title="Total Logs Today" value={stats.messages_today} icon={<MessageSquare />} color="border-l-[#8acb88]" textColor="text-[#8acb88]" />
+            <StatCard title="Completion Rate" value={`${stats.completion_rate}%`} icon={<CheckCircle />} color="border-l-[#ffbf46]" textColor="text-[#ffbf46]" />
           </>
         )}
       </motion.div>
@@ -357,15 +354,15 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
             </CardHeader>
             <CardContent>
               {loading || !dbStats ? (
-                <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8"/></div>
+                <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={dbStats.trends}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5ede0"/>
-                    <XAxis dataKey="date" stroke="#556d4a"/>
-                    <YAxis stroke="#556d4a"/>
-                    <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }}/>
-                    <Line type="monotone" dataKey="count" stroke="#5d8044" strokeWidth={3} name="Total Logs"/>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5ede0" />
+                    <XAxis dataKey="date" stroke="#556d4a" />
+                    <YAxis stroke="#556d4a" />
+                    <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }} />
+                    <Line type="monotone" dataKey="count" stroke="#5d8044" strokeWidth={3} name="Total Logs" />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -380,17 +377,17 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
             </CardHeader>
             <CardContent>
               {loading || !dbStats ? (
-                <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8"/></div>
+                <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie data={dbStats.batchStatus} cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
                       {dbStats.batchStatus.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={entry.color}/>
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }}/>
-                    <Legend/>
+                    <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }} />
+                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               )}

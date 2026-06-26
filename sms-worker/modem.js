@@ -2,6 +2,7 @@ const { SerialPort } = require('serialport');
 
 let port = null;
 let isConnected = false;
+let isInitialized = false;
 let isBusy = false;
 const commandQueue = [];
 
@@ -11,7 +12,7 @@ const BAUD_RATE = parseInt(process.env.BAUD_RATE) || 9600;
 // ─── Connection ───────────────────────────────────────────────────────────────
 
 function connectModem() {
-  console.log(`[Modem] Connecting to ${COM_PORT}...`);
+  // console.log(`[Modem] Connecting to ${COM_PORT}...`);
   port = new SerialPort({ path: COM_PORT, baudRate: BAUD_RATE, autoOpen: false });
   port.setMaxListeners(30);
 
@@ -19,16 +20,26 @@ function connectModem() {
     if (err) {
       console.log(`[Modem] ⚠️  Cannot open ${COM_PORT}. Retrying in 5s...`);
       isConnected = false;
+      isInitialized = false;
       setTimeout(connectModem, 5000);
       return;
     }
     isConnected = true;
-    console.log(`[Modem] ✅ Connected on ${COM_PORT}`);
+    // console.log(`[Modem] ✅ Connected on ${COM_PORT}`);
+    
+    // Auto-initialize text mode and storage every time it reconnects
+    initModem().then(() => {
+      isInitialized = true;
+    }).catch(e => {
+      console.error('[Modem] ❌ Init failed:', e.message);
+      if (port.isOpen) port.close(); // Force retry
+    });
   });
 
   port.on('close', () => {
-    console.log('[Modem] ⚠️  Disconnected. Reconnecting in 5s...');
+    // console.log('[Modem] ⚠️  Disconnected. Reconnecting in 5s...');
     isConnected = false;
+    isInitialized = false;
     isBusy = false;
     commandQueue.length = 0;
     setTimeout(connectModem, 5000);
@@ -37,6 +48,7 @@ function connectModem() {
   port.on('error', (err) => {
     console.log('[Modem] ❌ Error:', err.message);
     isConnected = false;
+    isInitialized = false;
     isBusy = false;
     setTimeout(connectModem, 5000);
   });
@@ -119,7 +131,23 @@ function sendCommand(cmd, timeoutMs = 8000, terminator = 'ok') {
     };
 
     port.on('data', onData);
-    port.write(cmd + '\r');   // \r is ALWAYS appended — required for \x1A to work
+    
+    const payload = cmd + '\r';
+    if (payload.length > 200) {
+      // Slow write: SIM800 modems buffer can overflow when dumping 600+ chars instantly
+      // resulting in ERROR. Sending 64 bytes every 10ms gives it time to process.
+      const writeSlowly = async () => {
+        for (let i = 0; i < payload.length; i += 64) {
+          if (port && port.isOpen) {
+            port.write(payload.substring(i, i + 64));
+            await new Promise(r => setTimeout(r, 10));
+          }
+        }
+      };
+      writeSlowly();
+    } else {
+      port.write(payload); // \r is ALWAYS appended — required for \x1A to work
+    }
 
     timer = setTimeout(() => {
       port.removeListener('data', onData);
@@ -138,32 +166,32 @@ async function initModem() {
   }
 
   const r1 = await enqueueCommand(() => sendCommand('AT', 3000, 'ok'));
-  console.log('[Modem] AT:', r1.includes('OK') ? 'OK' : r1);
+  // console.log('[Modem] AT:', r1.includes('OK') ? 'OK' : r1);
 
   // Disable echo so the modem doesn't echo our commands into parse output
   await enqueueCommand(() => sendCommand('ATE0', 2000, 'ok'));
 
   // Text mode
   const r2 = await enqueueCommand(() => sendCommand('AT+CMGF=1', 3000, 'ok'));
-  console.log('[Modem] CMGF (text mode):', r2.includes('OK') ? 'OK' : r2);
+  // console.log('[Modem] CMGF (text mode):', r2.includes('OK') ? 'OK' : r2);
 
   // FIX: Use "MT" for reading — MT = combined SIM (SM) + phone (ME) memory.
   // This means AT+CMGL="ALL" finds messages no matter where the modem stored them.
   // "SM" for write and receive means new messages are stored on the SIM card.
   const r3 = await enqueueCommand(() => sendCommand('AT+CPMS="MT","SM","SM"', 3000, 'ok'));
-  console.log('[Modem] CPMS storage:', r3.includes('OK') || r3.includes('+CPMS:') ? 'OK' : r3);
+  // console.log('[Modem] CPMS storage:', r3.includes('OK') || r3.includes('+CPMS:') ? 'OK' : r3);
 
   // Read current CPMS state so we can confirm storage slots in the log
   const r3b = await enqueueCommand(() => sendCommand('AT+CPMS?', 3000, 'ok'));
-  console.log('[Modem] CPMS status:', r3b.replace(/\r?\n/g, ' ').trim());
+  // console.log('[Modem] CPMS status:', r3b.replace(/\r?\n/g, ' ').trim());
 
   // Store new SMS in memory and notify with +CMTI.
   // CNMI=2,2 routes many modems' incoming SMS directly to serial as +CMT
   // instead of storing it, so the polling loop's AT+CMGL never sees replies.
   const r4 = await enqueueCommand(() => sendCommand('AT+CNMI=2,1,0,0,0', 3000, 'ok'));
-  console.log('[Modem] CNMI (receive mode):', r4.includes('OK') ? 'OK' : r4);
+  // console.log('[Modem] CNMI (receive mode):', r4.includes('OK') ? 'OK' : r4);
 
-  console.log('[Modem] ✅ Initialized. Ready to send and receive.');
+  // console.log('[Modem] ✅ Initialized. Ready to send and receive.');
 }
 
 function sendSMS(phone, message) {
@@ -202,9 +230,8 @@ function sendSMS(phone, message) {
       const r1 = await sendCommand(`AT+CMGS="${phone}"`, 5000, 'prompt');
       if (!r1.includes('>')) throw new Error('No SMS prompt. Got: ' + r1);
 
-      // Step 2: Send body + Ctrl+Z. Use 20s timeout — +CMTI notifications from
-      // other incoming SMS can delay the +CMGS: ack by several seconds.
-      const r2 = await sendCommand(body + '\x1A', 20000, 'cmgs');
+      // Step 2: Send body + Ctrl+Z. Use 60s timeout
+      const r2 = await sendCommand(body + '\x1A', 60000, 'cmgs');
       if (!r2.includes('+CMGS:')) throw new Error('Send failed: ' + r2);
       return true;
     } catch (err) {
@@ -212,13 +239,13 @@ function sendSMS(phone, message) {
     }
 
     // ── Modem recovery after failure ────────────────────────────────────────
-    // Send ESC to cancel any pending AT+CMGS body-entry state, then wait for
-    // the modem to fully settle. Without this, the next AT+CMGL call gets a
-    // polluted buffer and returns no messages — causing workers whose replies
-    // arrived during the failed send to never be processed.
     if (port && port.isOpen) {
       port.write('\x1B\r');
       await new Promise(r => setTimeout(r, 1200));
+      if (lastError && (lastError.message.includes('Send failed:') || lastError.message.includes('No SMS prompt'))) {
+        console.log('[Modem] ⚠️  Forcing port reset to un-freeze modem...');
+        port.close();
+      }
     }
     throw lastError;
   });
@@ -231,6 +258,14 @@ function readAllSMS() {
     // MT storage covers both SIM (SM) and phone (ME) memory combined,
     // so we find messages regardless of where the modem decided to store them.
     const raw = await sendCommand('AT+CMGL="ALL"', 10000, 'ok');
+    
+    // If the modem is completely frozen, it will timeout and return an empty string
+    if (raw === '') {
+      // console.log('[Modem] ⚠️  readAllSMS timed out (empty response). Forcing port reset...');
+      if (port && port.isOpen) port.close();
+      return [];
+    }
+    
     if (!raw.includes('+CMGL:')) {
       // Only log this occasionally to avoid log spam (caller logs on interval)
       return [];
@@ -315,6 +350,6 @@ function parseSMSList(raw) {
   return messages;
 }
 
-function getConnectionStatus() { return isConnected; }
+function getConnectionStatus() { return isConnected && isInitialized; }
 
 module.exports = { connectModem, initModem, sendSMS, readAllSMS, deleteSMS, getConnectionStatus };
