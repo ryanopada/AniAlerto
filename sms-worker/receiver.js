@@ -402,7 +402,7 @@ async function queueAutoReply(phone, message, workerId = null) {
   try {
     await db.execute(
       `INSERT INTO sms_queue (task_id, worker_id, phone, message, status, skip_log, created_at)
-       VALUES (NULL, ?, ?, ?, 'Queued', 0, NOW())`,
+       VALUES (NULL, ?, ?, ?, 'Queued', 1, NOW())`,
       [workerId || null, phone, message]
     );
     console.log(`[Receiver] 📤 Auto-reply queued → ${phone}: "${message.substring(0, 60)}"`);
@@ -700,6 +700,10 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
       await db.execute(
         `UPDATE sms_logs SET response_text = ?, received_at = NOW() WHERE direction = 'Outbound' AND response_text LIKE 'HELP%' AND (worker_id = ? OR phone = ? OR ${phoneMatchExpr('phone')} = ?) ORDER BY created_at DESC LIMIT 1`,
         [`HELP: ${topicLabel}`, workerId, phone, phoneKey(phone)]
+      );
+      await db.execute(
+        `UPDATE alerts SET message = CONCAT(SUBSTRING_INDEX(message, '. Menu', 1), ' - ', CAST(? AS CHAR)) WHERE type='HELP' AND (worker_id=? OR phone=?) AND is_read=0 ORDER BY created_at DESC LIMIT 1`,
+        [topicLabel, workerId, phone]
       );
     }
     if (number === '1') {

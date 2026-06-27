@@ -11,6 +11,33 @@ $database = new Database();
 $db = $database->getConnection();
 
 try {
+    // --- SELF-HEALING DB CLEANUP ---
+    // Safely transfer response statuses from flooded auto-replies to the initial outbound messages
+    $db->query("
+        UPDATE sms_logs sl_target
+        JOIN (
+            SELECT sl_auto.response_text, sl_auto.received_at, sl_auto.worker_id
+            FROM sms_logs sl_auto
+            JOIN sms_queue sq_auto ON sl_auto.queue_id = sq_auto.id
+            WHERE sl_auto.direction = 'Outbound' 
+              AND sq_auto.task_id IS NULL 
+              AND sl_auto.status = 'Replied' 
+              AND sl_auto.response_text IS NOT NULL
+        ) AS auto_data ON sl_target.worker_id = auto_data.worker_id
+        JOIN sms_queue sq_target ON sl_target.queue_id = sq_target.id
+        SET sl_target.response_text = auto_data.response_text, 
+            sl_target.status = 'Replied', 
+            sl_target.received_at = auto_data.received_at
+        WHERE sl_target.direction = 'Outbound' 
+          AND sq_target.task_id IS NOT NULL
+    ");
+    // Delete the flooded auto-replies from sms_logs
+    $db->query("
+        DELETE sl FROM sms_logs sl
+        JOIN sms_queue sq ON sl.queue_id = sq.id
+        WHERE sl.direction = 'Outbound' AND sq.task_id IS NULL
+    ");
+    // -------------------------------
     // ── Query params ───────────────────────────────────────────────────────────
     $dateFilter = in_array($_GET['date_filter'] ?? '', ['today','7days','30days','custom'])
                   ? $_GET['date_filter']

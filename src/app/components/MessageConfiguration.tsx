@@ -573,162 +573,166 @@ export function MessageConfiguration() {
       </motion.div>
 
       {/* Moved: Message Analytics & Visualizations[cite: 3] */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.35 }}
-      >
-        <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
-              <div className="flex items-center gap-3 text-[#3d5a36]">
-                <BarChart3 className="h-5 w-5 text-[#5d8044]" />
-                <span className="font-semibold">Message Analytics</span>
+      {false && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
+        >
+          <Collapsible open={isVisualizationOpen} onOpenChange={setIsVisualizationOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
+                <div className="flex items-center gap-3 text-[#3d5a36]">
+                  <BarChart3 className="h-5 w-5 text-[#5d8044]" />
+                  <span className="font-semibold">Message Analytics</span>
+                </div>
+                {isVisualizationOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-6 border-t border-[#e5ede0] bg-[#f8fdf3]">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-[#575761]">Messages by Category</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={categories.map(cat => ({ name: cat, value: templates.filter(t => t.category === cat).length })).filter(d => d.value > 0)} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
+                        <Cell fill="#8acb88" /><Cell fill="#ffbf46" /><Cell fill="#648381" /><Cell fill="#575761" /><Cell fill="#e4fde1" />
+                        <Cell fill="#a2d2ff" /><Cell fill="#cdb4db" /><Cell fill="#ffc8dd" /><Cell fill="#bde0fe" /><Cell fill="#ffafcc" />
+                      </Pie>
+                      <Tooltip /><Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-[#575761]">Template Status</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={[{ name: 'Active', value: templates.filter(t => !!t.active).length }, { name: 'Inactive', value: templates.filter(t => !t.active).length }]} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
+                        <Cell fill="#8acb88" /><Cell fill="#648381" />
+                      </Pie>
+                      <Tooltip /><Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-              {isVisualizationOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-6 border-t border-[#e5ede0] bg-[#f8fdf3]">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-[#575761]">Messages by Category</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={categories.map(cat => ({ name: cat, value: templates.filter(t => t.category === cat).length })).filter(d => d.value > 0)} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                      <Cell fill="#8acb88" /><Cell fill="#ffbf46" /><Cell fill="#648381" /><Cell fill="#575761" /><Cell fill="#e4fde1" />
-                      <Cell fill="#a2d2ff" /><Cell fill="#cdb4db" /><Cell fill="#ffc8dd" /><Cell fill="#bde0fe" /><Cell fill="#ffafcc" />
-                    </Pie>
-                    <Tooltip /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-[#575761]">Template Status</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={[{ name: 'Active', value: templates.filter(t => !!t.active).length }, { name: 'Inactive', value: templates.filter(t => !t.active).length }]} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                      <Cell fill="#8acb88" /><Cell fill="#648381" />
-                    </Pie>
-                    <Tooltip /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </motion.div>
+            </CollapsibleContent>
+          </Collapsible>
+        </motion.div>
+      )}
 
       {/* ── Scheduled Messages Manager ──────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.42 }}
-      >
-        <Collapsible open={isManagerOpen} onOpenChange={setIsManagerOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
-              <div className="flex items-center gap-3 text-[#3d5a36]">
-                <CalendarClock className="h-5 w-5 text-[#5d8044]" />
-                <span className="font-semibold">Scheduled Messages Manager</span>
+      {false && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.42 }}
+        >
+          <Collapsible open={isManagerOpen} onOpenChange={setIsManagerOpen} className="border border-[#d9ead6] rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#a4c692]/20 bg-white">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full flex justify-between items-center p-6 hover:bg-[#eff7ed] transition-colors duration-200">
+                <div className="flex items-center gap-3 text-[#3d5a36]">
+                  <CalendarClock className="h-5 w-5 text-[#5d8044]" />
+                  <span className="font-semibold">Scheduled Messages Manager</span>
+                  {scheduledMessages.some(m => m.is_test === 1 && m.active === 1 && !m.queued_at) && (
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 border border-amber-300 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      test messages pending
+                    </span>
+                  )}
+                </div>
+                {isManagerOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="border-t border-[#e5ede0] bg-[#f8fdf3]">
+              <div className="p-6 space-y-4">
                 {scheduledMessages.some(m => m.is_test === 1 && m.active === 1 && !m.queued_at) && (
-                  <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 border border-amber-300 flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    test messages pending
-                  </span>
+                  <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4 text-amber-800 text-sm">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-500" />
+                    <p><strong>Test messages detected.</strong> The scheduler skips them automatically, but delete or mark them as sent before adding new workers.</p>
+                  </div>
+                )}
+                {scheduledMessages.length === 0 ? (
+                  <p className="text-center text-[#7b8f6f] py-8">No scheduled messages found.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[#e5ede0] text-[#7b8f6f] text-left">
+                          <th className="pb-3 font-medium">Name</th>
+                          <th className="pb-3 font-medium">Batch</th>
+                          <th className="pb-3 font-medium">Scheduled For</th>
+                          <th className="pb-3 font-medium text-center">Q/S</th>
+                          <th className="pb-3 font-medium">Status</th>
+                          <th className="pb-3 font-medium text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scheduledMessages.map((m) => {
+                          const isTest = m.is_test === 1;
+                          const isProcessed = !m.active || !!m.queued_at;
+                          const delBusy = managerAction === m.id + '-del';
+                          const sentBusy = managerAction === m.id + '-sent';
+                          const testBusy = managerAction === m.id + '-test';
+                          return (
+                            <tr key={m.id} className="border-b border-[#f0f7ee] hover:bg-[#eff7ed] transition-colors">
+                              <td className="py-3 pr-3 font-medium text-[#3d5a36] max-w-[140px]">
+                                <p className="truncate" title={m.name}>{m.name}</p>
+                              </td>
+                              <td className="py-3 pr-3">
+                                {m.batch_name
+                                  ? <span className="flex items-center gap-1 text-xs text-[#3d5a36]"><Layers className="h-3 w-3" />{m.batch_name}</span>
+                                  : <span className="text-xs text-[#7b8f6f] italic">All</span>}
+                              </td>
+                              <td className="py-3 pr-3 text-[#556d4a]">
+                                {m.scheduled_send_datetime
+                                  ? new Date(m.scheduled_send_datetime).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                  : '—'}
+                              </td>
+                              <td className="py-3 pr-3 text-center text-[#556d4a] font-mono text-xs">{m.queued_count}/{m.sent_count}</td>
+                              <td className="py-3 pr-3">
+                                {isTest
+                                  ? <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 w-fit"><FlaskConical className="h-3 w-3" />Test</span>
+                                  : isProcessed
+                                    ? <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-300 w-fit block">Processed</span>
+                                    : <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 border border-green-300 w-fit block">Pending</span>}
+                              </td>
+                              <td className="py-3">
+                                <div className="flex gap-1.5 justify-end flex-wrap">
+                                  <Button size="sm" variant="outline"
+                                    disabled={!!managerAction}
+                                    onClick={() => handleManagerToggleTest(m.id)}
+                                    className={`text-xs gap-1 ${isTest ? 'border-amber-400 text-amber-700 hover:bg-amber-50' : 'border-[#d9ead6] text-[#556d4a] hover:bg-[#eff7ed]'}`}>
+                                    <FlaskConical className="h-3 w-3" />
+                                    {testBusy ? '…' : isTest ? 'Unflag' : 'Test'}
+                                  </Button>
+                                  <Button size="sm" variant="outline"
+                                    disabled={!!managerAction || isProcessed}
+                                    onClick={() => handleManagerMarkSent(m.id)}
+                                    className="text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50">
+                                    <CheckCircle className="h-3 w-3" />
+                                    {sentBusy ? '…' : 'Mark Sent'}
+                                  </Button>
+                                  <Button size="sm" variant="destructive"
+                                    disabled={!!managerAction}
+                                    onClick={() => handleManagerDelete(m.id)}
+                                    className="text-xs gap-1">
+                                    <Trash2 className="h-3 w-3" />
+                                    {delBusy ? '…' : 'Delete'}
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
-              {isManagerOpen ? <ChevronUp className="text-[#5d8044]" /> : <ChevronDown className="text-[#5d8044]" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="border-t border-[#e5ede0] bg-[#f8fdf3]">
-            <div className="p-6 space-y-4">
-              {scheduledMessages.some(m => m.is_test === 1 && m.active === 1 && !m.queued_at) && (
-                <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4 text-amber-800 text-sm">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-500" />
-                  <p><strong>Test messages detected.</strong> The scheduler skips them automatically, but delete or mark them as sent before adding new workers.</p>
-                </div>
-              )}
-              {scheduledMessages.length === 0 ? (
-                <p className="text-center text-[#7b8f6f] py-8">No scheduled messages found.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[#e5ede0] text-[#7b8f6f] text-left">
-                        <th className="pb-3 font-medium">Name</th>
-                        <th className="pb-3 font-medium">Batch</th>
-                        <th className="pb-3 font-medium">Scheduled For</th>
-                        <th className="pb-3 font-medium text-center">Q/S</th>
-                        <th className="pb-3 font-medium">Status</th>
-                        <th className="pb-3 font-medium text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scheduledMessages.map((m) => {
-                        const isTest = m.is_test === 1;
-                        const isProcessed = !m.active || !!m.queued_at;
-                        const delBusy = managerAction === m.id + '-del';
-                        const sentBusy = managerAction === m.id + '-sent';
-                        const testBusy = managerAction === m.id + '-test';
-                        return (
-                          <tr key={m.id} className="border-b border-[#f0f7ee] hover:bg-[#eff7ed] transition-colors">
-                            <td className="py-3 pr-3 font-medium text-[#3d5a36] max-w-[140px]">
-                              <p className="truncate" title={m.name}>{m.name}</p>
-                            </td>
-                            <td className="py-3 pr-3">
-                              {m.batch_name
-                                ? <span className="flex items-center gap-1 text-xs text-[#3d5a36]"><Layers className="h-3 w-3" />{m.batch_name}</span>
-                                : <span className="text-xs text-[#7b8f6f] italic">All</span>}
-                            </td>
-                            <td className="py-3 pr-3 text-[#556d4a]">
-                              {m.scheduled_send_datetime
-                                ? new Date(m.scheduled_send_datetime).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                : '—'}
-                            </td>
-                            <td className="py-3 pr-3 text-center text-[#556d4a] font-mono text-xs">{m.queued_count}/{m.sent_count}</td>
-                            <td className="py-3 pr-3">
-                              {isTest
-                                ? <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 w-fit"><FlaskConical className="h-3 w-3" />Test</span>
-                                : isProcessed
-                                  ? <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-300 w-fit block">Processed</span>
-                                  : <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 border border-green-300 w-fit block">Pending</span>}
-                            </td>
-                            <td className="py-3">
-                              <div className="flex gap-1.5 justify-end flex-wrap">
-                                <Button size="sm" variant="outline"
-                                  disabled={!!managerAction}
-                                  onClick={() => handleManagerToggleTest(m.id)}
-                                  className={`text-xs gap-1 ${isTest ? 'border-amber-400 text-amber-700 hover:bg-amber-50' : 'border-[#d9ead6] text-[#556d4a] hover:bg-[#eff7ed]'}`}>
-                                  <FlaskConical className="h-3 w-3" />
-                                  {testBusy ? '…' : isTest ? 'Unflag' : 'Test'}
-                                </Button>
-                                <Button size="sm" variant="outline"
-                                  disabled={!!managerAction || isProcessed}
-                                  onClick={() => handleManagerMarkSent(m.id)}
-                                  className="text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50">
-                                  <CheckCircle className="h-3 w-3" />
-                                  {sentBusy ? '…' : 'Mark Sent'}
-                                </Button>
-                                <Button size="sm" variant="destructive"
-                                  disabled={!!managerAction}
-                                  onClick={() => handleManagerDelete(m.id)}
-                                  className="text-xs gap-1">
-                                  <Trash2 className="h-3 w-3" />
-                                  {delBusy ? '…' : 'Delete'}
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </motion.div>
+            </CollapsibleContent>
+          </Collapsible>
+        </motion.div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
