@@ -344,57 +344,59 @@ export function Dashboard({ alerts: propAlerts, onAlertsRead }: DashboardProps) 
         <CropCalendar />
       </motion.div>
 
-      {/* Charts */}
-      <motion.div className="grid lg:grid-cols-2 gap-6"
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
-        <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
-          <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
-            <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
-              <CardTitle className="text-[#3d5a36]">Message Activity (7 Days)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading || !dbStats ? (
-                <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={dbStats.trends}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5ede0" />
-                    <XAxis dataKey="date" stroke="#556d4a" />
-                    <YAxis stroke="#556d4a" />
-                    <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }} />
-                    <Line type="monotone" dataKey="count" stroke="#5d8044" strokeWidth={3} name="Total Logs" />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+      {/* Charts (Hidden per request) */}
+      {false && (
+        <motion.div className="grid lg:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
+          <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+            <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+              <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
+                <CardTitle className="text-[#3d5a36]">Message Activity (7 Days)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading || !dbStats ? (
+                  <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={dbStats.trends}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5ede0" />
+                      <XAxis dataKey="date" stroke="#556d4a" />
+                      <YAxis stroke="#556d4a" />
+                      <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }} />
+                      <Line type="monotone" dataKey="count" stroke="#5d8044" strokeWidth={3} name="Total Logs" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
-          <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
-            <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
-              <CardTitle className="text-[#3d5a36]">Batch Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading || !dbStats ? (
-                <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={dbStats.batchStatus} cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
-                      {dbStats.batchStatus.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+          <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+            <Card className="border border-[#d9ead6] shadow-2xl shadow-[#a4c692]/20 rounded-[1.5rem] overflow-hidden bg-gradient-to-br from-white to-[#f8fdf3]">
+              <CardHeader className="bg-gradient-to-r from-[#f5fbf3] to-[#f0f8eb] border-b border-[#e5ede0]">
+                <CardTitle className="text-[#3d5a36]">Batch Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading || !dbStats ? (
+                  <div className="flex justify-center items-center h-[300px]"><Loader2 className="animate-spin text-[#5d8044] h-8 w-8" /></div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={dbStats.batchStatus} cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
+                        {dbStats.batchStatus.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: "#f8fdf3", border: "1px solid #d9ead6", borderRadius: "0.5rem" }} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </div>
   );
 }

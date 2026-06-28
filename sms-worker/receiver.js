@@ -269,8 +269,8 @@ const HARVEST_TYPES = {
     label: 'Harvest - Storage/Drying',
     msg:
       'AniAlerto: Harvest Help - Storage / Drying:\n' +
-      '4.4.1 Sun drying\n' +
-      '4.4.2 Mechanical dryer\n\n' +
+      '4.4.1 Spread harvest evenly on tarpaulins for sun drying\n' +
+      '4.4.2 Set mechanical dryer to the correct temperature\n' +
       'Tulong sa Pag-aani - Pag-iimbak / Pagpatuyo:\n' +
       '4.4.1 Patuyuin sa araw\n' +
       '4.4.2 Gumamit ng mechanical dryer',
@@ -702,7 +702,7 @@ async function handleHelpReply(number, workerId, workerName, phone, session) {
         [`HELP: ${topicLabel}`, workerId, phone, phoneKey(phone)]
       );
       await db.execute(
-        `UPDATE alerts SET message = CONCAT(SUBSTRING_INDEX(message, '. Menu', 1), ' - ', CAST(? AS CHAR)) WHERE type='HELP' AND (worker_id=? OR phone=?) AND is_read=0 ORDER BY created_at DESC LIMIT 1`,
+        `UPDATE alerts SET message = REPLACE(message, 'Menu sent — awaiting topic selection.', CONCAT('Topic selected: ', CAST(? AS CHAR))) WHERE type='HELP' AND (worker_id=? OR phone=?) AND is_read=0 ORDER BY created_at DESC LIMIT 1`,
         [topicLabel, workerId, phone]
       );
     }
@@ -1096,7 +1096,7 @@ async function processIncoming() {
         const delaySession = await getDelaySession(normalizedPhone, workerId);
         if (delaySession) {
           const numReply = sms.text.trim();
-          
+
           if (numReply === '1') {
             const delayReason = 'Matinding Init';
             console.log(`[Receiver] 📝 Delay reason received from ${workerName}: "${delayReason}"`);

@@ -86,7 +86,17 @@ async function processBatch(batchSize, delayMs) {
       await db.execute(
         `INSERT INTO sms_logs
          (queue_id, task_id, worker_id, phone, message, direction, status, provider_ref, raw_response, sent_at, created_at)
-         VALUES (?, ?, ?, ?, ?, 'Outbound', ?, ?, ?, NOW(), NOW())`,
+         VALUES (?, ?, ?, ?, ?, 'Outbound', ?, ?, ?, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE 
+           queue_id = VALUES(queue_id),
+           task_id = VALUES(task_id),
+           status = VALUES(status),
+           provider_ref = VALUES(provider_ref),
+           raw_response = VALUES(raw_response),
+           sent_at = VALUES(sent_at),
+           created_at = VALUES(created_at),
+           response_text = NULL,
+           received_at = NULL`,
         [sms.id, sms.task_id, sms.worker_id, sms.phone, sms.message, status, providerRef, rawResponse]
       );
     }
