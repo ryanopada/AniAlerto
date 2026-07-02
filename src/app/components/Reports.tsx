@@ -54,6 +54,9 @@ export function Reports() {
           id, name: data.filterOptions.workersMap?.[id] || "Unknown Worker"
         }));
         setAvailableWorkers(workers);
+        if (workerId && !allowedWorkerIds.includes(workerId)) {
+          setWorkerId("");
+        }
       } else {
         const allWorkers = Object.entries(data.filterOptions.workersMap || {}).map(([id, name]) => ({ id, name: String(name) }));
         setAvailableWorkers(allWorkers);
@@ -67,7 +70,7 @@ export function Reports() {
     try {
       const queryParams = new URLSearchParams();
       queryParams.append("report_type", reportType);
-      if (batchId) queryParams.append("batch_id", batchId);
+      if (batchId && reportType === "export") queryParams.append("batch_id", batchId);
       if (workerId && reportType === "export") queryParams.append("worker_id", workerId);
       if (startDate) queryParams.append("start_date", startDate);
       if (endDate) queryParams.append("end_date", endDate);
@@ -113,10 +116,10 @@ export function Reports() {
       
       const bName = data.filterOptions?.batches?.find((b:any)=>b.id===batchId)?.name || "All Batches";
       const dateRangeStr = (startDate || endDate) ? `${startDate ? fmtDate(startDate) : 'Start'} to ${endDate ? fmtDate(endDate) : 'Present'}` : 'All Time';
-      let filterText = `Filters: Batch: ${bName} | Date: ${dateRangeStr}`;
+      let filterText = `Filters: Date: ${dateRangeStr}`;
       if (reportType === 'export') {
           const wName = workerId ? data.filterOptions?.workersMap?.[workerId] : "All Workers";
-          filterText += ` | Worker: ${wName}`;
+          filterText = `Filters: Batch: ${bName} | Date: ${dateRangeStr} | Worker: ${wName}`;
       }
       doc.text(filterText, W / 2, 23, { align: "center" });
 
@@ -212,9 +215,9 @@ export function Reports() {
         doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(...GREEN);
         doc.text("System Alerts & Monitoring", 14, y); y+=5;
         const alertsData = [
-            ...a.systemAlerts.missedTasks.map((t:any) => ["Missed Task", `${t.task} (Due: ${t.due})`]),
-            ...a.systemAlerts.failedSMS.map((f:any) => ["Failed SMS", `${f.phone_number}: ${f.error_message}`]),
-            ...a.systemAlerts.unresponsive.map((u:any) => ["Unresponsive", `Worker: ${u}`])
+            ...(a.systemAlerts?.missedTasks || []).map((t:any) => ["Missed Task", `${t.task} (Due: ${t.due})`]),
+            ...(a.systemAlerts?.failedSMS || []).map((f:any) => ["Failed SMS", `${f.phone_number}: ${f.error_message}`]),
+            ...(a.systemAlerts?.unresponsive || []).map((u:any) => ["Unresponsive", `Worker: ${u}`])
         ];
         if (alertsData.length > 0) {
             autoTable(doc, { startY: y, head: [["Alert Type", "Details"]], body: alertsData, headStyles: { fillColor: [220, 38, 38] } });
@@ -366,9 +369,14 @@ export function Reports() {
               </select>
             </div>
             <div className="space-y-1.5 md:col-span-2 md:col-start-1">
-              <Label className="text-xs font-bold text-[#7b8f6f] uppercase">Farm Batch</Label>
-              <select className="w-full border rounded-md h-10 px-3 bg-white shadow-sm border-[#d9ead6] text-sm text-[#556d4a]" value={batchId} onChange={e => setBatchId(e.target.value)}>
-                <option value="">-- Select a Batch (Required) --</option>
+              <Label className={`text-xs font-bold uppercase ${reportType !== 'export' ? 'text-gray-400' : 'text-[#7b8f6f]'}`}>
+                Farm Batch {reportType !== 'export' && '(Disabled - Global)'}
+              </Label>
+              <select 
+                className={`w-full border rounded-md h-10 px-3 shadow-sm text-sm ${reportType !== 'export' ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white border-[#d9ead6] text-[#556d4a]'}`} 
+                value={batchId} onChange={e => setBatchId(e.target.value)} disabled={reportType !== 'export'}
+              >
+                <option value="">-- Select a Batch (Required for Export) --</option>
                 {data?.filterOptions?.batches?.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
@@ -488,11 +496,11 @@ export function Reports() {
                         <Card className="bg-white border-[#d9ead6]">
                             <CardHeader className="bg-[#f5fbf3] border-b border-[#e5ede0]"><CardTitle className="text-sm font-bold text-[#3d5a36]">Worker Responses Summary</CardTitle></CardHeader>
                             <CardContent className="p-4 grid grid-cols-4 gap-2 text-center">
-                                <div className="p-2 flex flex-col items-center justify-start"><p className="text-xs font-bold text-green-700">DONE</p><p className="text-xl font-bold">{data.activityReport.workerResponses?.done || 0}</p></div>
+                                <div className="p-2 flex flex-col items-center justify-start"><p className="text-xs font-bold text-green-700">DONE</p><p className="text-xl font-bold">{data.activityReport.workerResponses?.done || "0 (Clear)"}</p></div>
                                 <div className="p-2 flex flex-col items-center justify-start">
                                     <p className="text-xs font-bold text-blue-700">HELP</p>
-                                    <p className="text-xl font-bold">{data.activityReport.workerResponses?.helpCount || 0}</p>
-                                    {data.activityReport.workerResponses?.helpTypes?.length > 0 && (
+                                    <p className="text-xl font-bold">{data.activityReport.workerResponses?.helpCount || "0 (Clear)"}</p>
+                                    {data.activityReport.workerResponses?.helpTypes?.length > 0 ? (
                                         <div className="mt-1 w-full text-left">
                                             {data.activityReport.workerResponses.helpTypes.map((h: any, i: number) => (
                                                 <p key={i} className="text-[10px] text-blue-900 border-t border-blue-100 pt-1 flex justify-between">
@@ -500,12 +508,12 @@ export function Reports() {
                                                 </p>
                                             ))}
                                         </div>
-                                    )}
+                                    ) : <p className="text-[10px] text-blue-900 border-t border-blue-100 pt-1 w-full text-center italic mt-1">None</p>}
                                 </div>
                                 <div className="p-2 flex flex-col items-center justify-start">
                                     <p className="text-xs font-bold text-red-700">PEST</p>
-                                    <p className="text-xl font-bold">{data.activityReport.workerResponses?.pest || 0}</p>
-                                    {data.activityReport.workerResponses?.pestTypes?.length > 0 && (
+                                    <p className="text-xl font-bold">{data.activityReport.workerResponses?.pest || "0 (Clear)"}</p>
+                                    {data.activityReport.workerResponses?.pestTypes?.length > 0 ? (
                                         <div className="mt-1 w-full text-left">
                                             {data.activityReport.workerResponses.pestTypes.map((h: any, i: number) => (
                                                 <p key={i} className="text-[10px] text-red-900 border-t border-red-100 pt-1 flex justify-between">
@@ -513,12 +521,12 @@ export function Reports() {
                                                 </p>
                                             ))}
                                         </div>
-                                    )}
+                                    ) : <p className="text-[10px] text-red-900 border-t border-red-100 pt-1 w-full text-center italic mt-1">None</p>}
                                 </div>
                                 <div className="p-2 flex flex-col items-center justify-start">
                                     <p className="text-xs font-bold text-amber-700">DELAY</p>
-                                    <p className="text-xl font-bold">{data.activityReport.workerResponses?.delay || 0}</p>
-                                    {data.activityReport.workerResponses?.delayTypes?.length > 0 && (
+                                    <p className="text-xl font-bold">{data.activityReport.workerResponses?.delay || "0 (Clear)"}</p>
+                                    {data.activityReport.workerResponses?.delayTypes?.length > 0 ? (
                                         <div className="mt-1 w-full text-left">
                                             {data.activityReport.workerResponses.delayTypes.map((h: any, i: number) => (
                                                 <p key={i} className="text-[10px] text-amber-900 border-t border-amber-100 pt-1 flex justify-between">
@@ -526,7 +534,7 @@ export function Reports() {
                                                 </p>
                                             ))}
                                         </div>
-                                    )}
+                                    ) : <p className="text-[10px] text-amber-900 border-t border-amber-100 pt-1 w-full text-center italic mt-1">None</p>}
                                 </div>
                             </CardContent>
                         </Card>
@@ -583,11 +591,14 @@ export function Reports() {
                         <Card className="bg-white"><CardContent className="p-6 text-center"><p className="text-xs font-bold text-gray-500 uppercase">Task Completion Rate</p><p className="text-3xl font-black text-[#5d8044]">{data.analyticalReport.systemEffectiveness?.taskCompletionRate || 0}%</p></CardContent></Card>
                         <Card className="bg-white"><CardContent className="p-6 text-center"><p className="text-xs font-bold text-gray-500 uppercase">Worker Responsiveness</p><p className="text-3xl font-black text-blue-600">{data.analyticalReport.systemEffectiveness?.workerResponsivenessRate || 0}%</p></CardContent></Card>
                         <Card className="bg-white"><CardContent className="p-6 text-center">
-                            <p className="text-xs font-bold text-gray-500 uppercase">SMS Delivery Success</p>
-                            <p className="text-3xl font-black text-green-600">{data.analyticalReport.systemEffectiveness?.smsDeliverySuccessRate || 0}%</p>
-                            <div className="flex justify-center gap-4 mt-2">
-                                <span className="text-[10px] text-green-700 font-bold bg-green-50 px-2 rounded-md">Sent: {data.analyticalReport.systemEffectiveness?.smsDelivery?.sent || 0}</span>
-                                <span className="text-[10px] text-red-700 font-bold bg-red-50 px-2 rounded-md">Failed: {data.analyticalReport.systemEffectiveness?.smsDelivery?.failed || 0}</span>
+                            <p className="text-xs font-bold text-gray-500 uppercase mb-2">SMS Delivery Success</p>
+                            <p className="text-3xl font-black text-green-600 mb-2">{data.analyticalReport.systemEffectiveness?.smsDeliverySuccessRate || 0}%</p>
+                            <div className="w-full bg-red-100 rounded-full h-1.5 mb-3 overflow-hidden">
+                                <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${data.analyticalReport.systemEffectiveness?.smsDeliverySuccessRate || 0}%` }}></div>
+                            </div>
+                            <div className="flex justify-center gap-4">
+                                <span className="text-[10px] text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded-md">Delivered: {data.analyticalReport.systemEffectiveness?.smsDelivery?.sent || 0}</span>
+                                <span className="text-[10px] text-red-700 font-bold bg-red-50 px-2 py-0.5 rounded-md">Failed: {data.analyticalReport.systemEffectiveness?.smsDelivery?.failed || 0}</span>
                             </div>
                         </CardContent></Card>
                     </div>
@@ -769,7 +780,7 @@ export function Reports() {
                         <CardContent className="p-0 max-h-96 overflow-y-auto">
                             <Table>
                                 <TableHeader className="bg-[#f3faf2] sticky top-0">
-                                    <TableRow><TableHead>Timestamp</TableHead><TableHead>Worker</TableHead><TableHead>Task Assigned</TableHead><TableHead>Worker Reply</TableHead><TableHead>Response Latency</TableHead></TableRow>
+                                    <TableRow><TableHead>Timestamp</TableHead><TableHead>Worker</TableHead><TableHead>Task Assigned</TableHead><TableHead>Worker Reply</TableHead></TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {data.exportReport.logs?.map((l: any, i: number) => (
@@ -782,7 +793,6 @@ export function Reports() {
                                                     {l.response_text}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="font-mono text-sm text-purple-700 font-bold">{l.latency}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

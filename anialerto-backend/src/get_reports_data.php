@@ -47,19 +47,20 @@ $start_date = isset($_GET['start_date']) ? $conn->real_escape_string($_GET['star
 $end_date   = isset($_GET['end_date']) ? $conn->real_escape_string($_GET['end_date']) : '';
 
 $task_conds = ["1=1"];
-if ($batch_id > 0) $task_conds[] = "st.batch_id = $batch_id";
+if ($batch_id > 0) $task_conds[] = "mt.batch_id = $batch_id";
 if ($start_date)   $task_conds[] = "DATE(st.due_date) >= '$start_date'";
 if ($end_date)     $task_conds[] = "DATE(st.due_date) <= '$end_date'";
 $task_where = implode(" AND ", $task_conds);
 
 $log_conds = ["1=1"];
 if ($worker_id > 0) $log_conds[] = "sl.worker_id = $worker_id";
+if ($batch_id > 0)  $log_conds[] = "sl.worker_id IN (SELECT worker_id FROM batch_workers WHERE batch_id = $batch_id)";
 if ($start_date)    $log_conds[] = "DATE(sl.created_at) >= '$start_date'";
 if ($end_date)      $log_conds[] = "DATE(sl.created_at) <= '$end_date'";
 $log_where = implode(" AND ", $log_conds);
 
 $export_log_conds = $log_conds;
-if ($batch_id > 0) $export_log_conds[] = "st.batch_id = $batch_id";
+if ($batch_id > 0) $export_log_conds[] = "mt.batch_id = $batch_id";
 $export_log_where = implode(" AND ", $export_log_conds);
 
 $report_type = isset($_GET['report_type']) ? $_GET['report_type'] : 'all';
@@ -116,19 +117,7 @@ if ($report_type === 'all' || $report_type === 'activity') {
         ];
     }
     
-    // D. SMS Advisory Logs
-    $smsQueue = safeRows($conn, "SELECT status, COUNT(*) as cnt FROM sms_queue sq WHERE 1=1 GROUP BY status");
-    foreach($smsQueue as $q) {
-        $stat = strtolower($q['status']);
-        if ($stat === 'sent') $activityReport["smsAdvisoryLogs"]["sent"] += (int)$q['cnt'];
-        else if ($stat === 'failed') {
-            $activityReport["smsAdvisoryLogs"]["failed"] += (int)$q['cnt'];
-            $failedLogs = safeRows($conn, "SELECT phone_number, error_message FROM sms_queue WHERE status='Failed' LIMIT 5");
-            foreach($failedLogs as $fl) $activityReport["systemAlerts"]["failedSMS"][] = $fl;
-        }
-        else $activityReport["smsAdvisoryLogs"]["pending"] += (int)$q['cnt'];
-    }
-    
+    // D. SMS Advisory Logs - COMPLETELY REMOVED as requested.    
     // E. Worker SMS Responses
     $workerResp = safeRows($conn, "SELECT response_text FROM sms_logs sl WHERE direction = 'Outbound' AND $log_where");
     foreach($workerResp as $r) {
@@ -221,7 +210,7 @@ if ($report_type === 'all' || $report_type === 'analytical') {
 
     // C & D. Crop Lifecycle & Operational Insights
     $affectedAct = [];
-    $allTasks = safeRows($conn, "SELECT st.status, st.completed_at, mt.category, fb.planting_date FROM scheduled_tasks st JOIN message_templates mt ON st.template_id = mt.id LEFT JOIN farm_batches fb ON st.batch_id = fb.id WHERE $task_where");
+    $allTasks = safeRows($conn, "SELECT st.status, st.completed_at, mt.category, fb.planting_date FROM scheduled_tasks st JOIN message_templates mt ON st.template_id = mt.id LEFT JOIN farm_batches fb ON mt.batch_id = fb.id WHERE $task_where");
     foreach($allTasks as $t) {
         $stage = getCropStage($t['planting_date'], $t['completed_at'] ?: date('Y-m-d'));
         if (isset($analyticalReport["cropLifecycle"][$stage])) {
@@ -246,7 +235,8 @@ if ($report_type === 'all' || $report_type === 'analytical') {
     // E. Worker Performance Ranking
     $workersQuery = safeRows($conn, "
         SELECT w.id, w.name,
-               SUM(CASE WHEN sl.direction = 'Outbound' THEN 1 ELSE 0 END) as workerReplied,
+               SUM(CASE WHEN sl.direction = 'Outbound' THEN 1 ELSE 0 END) as systemSent,
+               SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text IS NOT NULL THEN 1 ELSE 0 END) as workerReplied,
                SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text = 'DONE' THEN 1 ELSE 0 END) as doneCount,
                SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text LIKE 'DELAY%' THEN 1 ELSE 0 END) as delayCount,
                SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text LIKE 'HELP%' THEN 1 ELSE 0 END) as helpCount,
@@ -256,20 +246,16 @@ if ($report_type === 'all' || $report_type === 'analytical') {
         WHERE w.status = 'Active'
         GROUP BY w.id, w.name
     ");
-    // Also fetch sent count from sms_queue
-    $qSent = safeRows($conn, "SELECT worker_id, COUNT(*) as c FROM sms_queue WHERE status='Sent' GROUP BY worker_id");
-    $qSentMap = []; foreach($qSent as $qs) { $qSentMap[$qs['worker_id']] = (int)$qs['c']; }
     
     $workerRanks = []; $totalSystemSent = 0; $totalWorkerReplied = 0;
     foreach($workersQuery as $wq) {
-        $sent = $qSentMap[$wq['id']] ?? 0; 
+        $sent = (int)$wq['systemSent']; 
         $replied = (int)$wq['workerReplied'];
         $totalSystemSent += $sent; $totalWorkerReplied += $replied;
         $respRate = $sent > 0 ? round(($replied / $sent) * 100) : 0;
         if ($replied > $sent) $respRate = 100; // Cap at 100%
         $unresponsive = max(0, $sent - $replied);
         
-        // Remove score calculation, just map data
         $workerRanks[] = ["id" => $wq['id'], "name" => $wq['name'], "sent" => $sent, "replied" => $replied, "responsiveness" => $respRate, "unresponsiveIncidents" => $unresponsive, "done" => $wq['doneCount'], "delay" => $wq['delayCount'], "help" => $wq['helpCount'], "pest" => $wq['pestCount']];
     }
     // Rank logic: Responsiveness Desc, Unresponsive Asc, Done Desc, Delay Asc
@@ -311,9 +297,9 @@ if ($report_type === 'all' || $report_type === 'export') {
     $wProfCond = "WHERE w.status='Active'";
     if ($worker_id > 0) $wProfCond .= " AND w.id=$worker_id";
     if ($batch_id > 0 && $worker_id == 0) {
-        $profs = safeRows($conn, "SELECT w.name, w.phone_number, w.status FROM workers w JOIN batch_workers bw ON w.id = bw.worker_id $wProfCond AND bw.batch_id=$batch_id");
+        $profs = safeRows($conn, "SELECT DISTINCT w.name, w.phone_number, w.status FROM workers w JOIN batch_workers bw ON w.id = bw.worker_id $wProfCond AND bw.batch_id=$batch_id");
     } else {
-        $profs = safeRows($conn, "SELECT name, phone_number, status FROM workers w $wProfCond");
+        $profs = safeRows($conn, "SELECT DISTINCT name, phone_number, status FROM workers w $wProfCond");
     }
     $exportReport["profiles"]["workers"] = $profs;
 
@@ -325,10 +311,11 @@ if ($report_type === 'all' || $report_type === 'export') {
     
     $wQ2 = safeRows($conn, "
         SELECT w.id, 
-               SUM(CASE WHEN sl.direction = 'Outbound' THEN 1 ELSE 0 END) as r, 
-               SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text = 'DONE' AND DATE(sl.created_at) <= DATE(st.due_date) THEN 1 ELSE 0 END) as onTime,
-               SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text = 'DONE' AND DATE(sl.created_at) > DATE(st.due_date) THEN 1 ELSE 0 END) as delayedDone,
-               SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text LIKE 'DELAY%' THEN 1 ELSE 0 END) as activeDelay
+               SUM(CASE WHEN sl.direction = 'Outbound' THEN 1 ELSE 0 END) as systemSent,
+               SUM(CASE WHEN sl.direction = 'Outbound' AND sl.response_text IS NOT NULL THEN 1 ELSE 0 END) as r, 
+               SUM(CASE WHEN sl.direction = 'Outbound' AND UPPER(sl.response_text) = 'DONE' AND (st.due_date IS NULL OR DATE(sl.created_at) <= DATE(st.due_date)) THEN 1 ELSE 0 END) as onTime,
+               SUM(CASE WHEN sl.direction = 'Outbound' AND UPPER(sl.response_text) = 'DONE' AND st.due_date IS NOT NULL AND DATE(sl.created_at) > DATE(st.due_date) THEN 1 ELSE 0 END) as delayedDone,
+               SUM(CASE WHEN sl.direction = 'Outbound' AND UPPER(sl.response_text) LIKE 'DELAY%' THEN 1 ELSE 0 END) as activeDelay
         FROM workers w 
         LEFT JOIN sms_logs sl ON w.id = sl.worker_id AND ($log_where)
         LEFT JOIN scheduled_tasks st ON sl.task_id = st.id
@@ -336,16 +323,13 @@ if ($report_type === 'all' || $report_type === 'export') {
         GROUP BY w.id
     ");
 
-    $qSentEx = safeRows($conn, "SELECT worker_id, COUNT(*) as c FROM sms_queue WHERE status='Sent' GROUP BY worker_id");
-    $qSentExMap = []; foreach($qSentEx as $qs) { $qSentExMap[$qs['worker_id']] = (int)$qs['c']; }
-
     foreach($wQ2 as $wq) {
         if ($worker_id > 0 && $wq['id'] != $worker_id) continue;
         if ($batch_id > 0) {
             $isAssigned = safeRows($conn, "SELECT 1 FROM batch_workers WHERE batch_id = $batch_id AND worker_id = " . $wq['id']);
             if (count($isAssigned) === 0) continue;
         }
-        $f_sent += ($qSentExMap[$wq['id']] ?? 0); 
+        $f_sent += (int)$wq['systemSent']; 
         $f_replied += (int)$wq['r']; 
         $f_onTime += (int)$wq['onTime']; $f_delayedDone += (int)$wq['delayedDone']; $f_activeDelay += (int)$wq['activeDelay'];
     }
@@ -378,24 +362,12 @@ if ($report_type === 'all' || $report_type === 'export') {
         if (isset($exportReport["timelineMatrix"][$stage])) {
             $exportReport["timelineMatrix"][$stage]++;
         }
-        
-        // E. Latency Calculation
-        $latencyStr = "N/A";
-        if ($dl['task_id']) {
-            $prevSys = safeRows($conn, "SELECT created_at FROM sms_logs WHERE direction='Inbound' AND worker_id={$dl['worker_id']} AND task_id={$dl['task_id']} AND created_at < '{$dl['created_at']}' ORDER BY created_at DESC LIMIT 1");
-            if (count($prevSys) > 0) {
-                $sysTime = strtotime($prevSys[0]['created_at']);
-                $repTime = strtotime($dl['created_at']);
-                $diffMin = round(($repTime - $sysTime) / 60);
-                if ($diffMin < 60) $latencyStr = $diffMin . "m";
-                else {
-                    $hrs = floor($diffMin / 60);
-                    $mins = $diffMin % 60;
-                    $latencyStr = $hrs . "h " . $mins . "m";
-                }
-            }
+        // E. Interaction Logs PEST Parsing
+        $txt = strtoupper($dl['response_text'] ?? '');
+        if (strpos($txt, 'PEST') === 0 || $txt === 'UOD') {
+            $type = strpos($txt, 'PEST:') === 0 ? trim(substr($txt, 5)) : ($txt === 'UOD' ? 'Uod' : 'General');
+            $dl['response_text'] = "PEST Report: " . $type;
         }
-        $dl['latency'] = $latencyStr;
     }
     $exportReport["logs"] = $deepLogs;
 }
